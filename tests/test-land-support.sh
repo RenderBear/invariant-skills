@@ -97,8 +97,11 @@ if (cd "$fixture" && sh "$land" merge intent/work/u1 "unreviewed" --unit u1 --sc
   die "semantic constraint landed without review"
 fi
 out=$(cd "$fixture" && sh "$land" merge intent/work/u1 "reviewed source" --unit u1 \
-  --scope area.src --domain source --reviewed constraint:source.layout --boundary-review no-record)
-printf '%s\n' "$out" | grep -q '^CHECK: running — command:checks/verify.sh$' || die "contract verifier did not run"
+  --scope area.src --domain source --reviewed constraint:source.layout --boundary-review no-record \
+  --check command:checks/verify.sh --check command:checks/verify.sh)
+[ "$(printf '%s\n' "$out" | grep -c '^CHECK: running — command:checks/verify.sh$')" -eq 1 ] ||
+  die "duplicate auto-discovered and explicit checks did not run exactly once"
+printf '%s\n' "$out" | grep -q '^CHECKS: 1 unique$' || die "unique check summary missing"
 printf '%s\n' "$out" | grep -q '^BOUNDARY-REVIEW: no-record$' || die "no-record disposition missing"
 printf '%s\n' "$out" | grep -q '^LANDED:' || die "reviewed candidate did not land"
 git -C "$fixture" log -1 --format='%(trailers:key=Intent-Boundary,valueonly)' | grep -qxF no-record ||

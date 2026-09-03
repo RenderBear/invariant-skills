@@ -338,6 +338,15 @@ run_locator() {
   esac
 }
 
+executed_checks="$tmp/executed-checks"
+: >"$executed_checks"
+run_unique_locator() {
+  locator=$1
+  if grep -qxF "$locator" "$executed_checks"; then return 0; fi
+  printf '%s\n' "$locator" >>"$executed_checks"
+  run_locator "$locator"
+}
+
 if [ "$unborn" -eq 1 ]; then
   # shellcheck disable=SC2086
   verifier_rows=$(cd "$verify_dir" && sh "$brief_dir/brief-support.sh" verifiers --root $reach_args)
@@ -352,7 +361,7 @@ printf '%s\n' "$verifier_rows" | sed -n 's/^VERIFY: [^ ]* //p' | while IFS= read
       echo "git-intent: nested contract verifier '$locator' must resolve to an executable verifier before landing" >&2
       exit 1
       ;;
-    *) run_locator "$locator" ;;
+    *) run_unique_locator "$locator" ;;
   esac
 done
 
@@ -367,8 +376,10 @@ printf '%s\n' "$verifier_rows" | sed -n 's/^REVIEW: \([^ ]*\) .*/\1/p' | while I
 done
 
 printf '%s\n' "$checks" | sed '/^$/d' | while IFS= read -r locator; do
-  run_locator "$locator"
+  run_unique_locator "$locator"
 done
+check_count=$(wc -l <"$executed_checks" | tr -d ' ')
+echo "CHECKS: $check_count unique"
 
 # A coordinated landing must be backed by live leases whose combined claims
 # cover the branch, integration target, changed paths, domains, and governance.

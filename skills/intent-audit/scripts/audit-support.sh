@@ -83,7 +83,7 @@ emit_frame() {
   emit_sources
   printf 'STATE-VALIDATION:\n'
   sh "$validate_script" --audit || true
-  printf 'NEXT: write semantic findings to .intent/audits/<id>.yml; then use intent-record adopt when accepted\n'
+  printf 'NEXT: classify findings, then present one recommended transition and any required decision\n'
 }
 
 case "$cmd" in
