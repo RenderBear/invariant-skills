@@ -30,14 +30,14 @@ cmd=$1
 shift
 
 root=$(git rev-parse --show-toplevel 2>/dev/null) || {
-  echo "git-intent: not inside a Git repository" >&2
+  echo "Invariant: not inside a Git repository" >&2
   exit 2
 }
 cd "$root" || exit 2
 
 snapshot() {
   ground=$(git rev-parse -q --verify HEAD 2>/dev/null || echo unborn)
-  index=$(mktemp "${TMPDIR:-/tmp}/git-intent-audit-index.XXXXXX") || exit 2
+  index=$(mktemp "${TMPDIR:-/tmp}/invariant-audit-index.XXXXXX") || exit 2
   rm -f "$index"
   if [ "$ground" = unborn ]; then GIT_INDEX_FILE="$index" git read-tree --empty
   else GIT_INDEX_FILE="$index" git read-tree "$ground^{tree}"; fi
@@ -100,19 +100,19 @@ case "$cmd" in
   fresh)
     [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage
     case "$1" in */*) audit=$1 ;; *) audit=".intent/audits/$1.yml" ;; esac
-    [ -f "$audit" ] || { echo "git-intent: no audit '$1'" >&2; exit 2; }
+    [ -f "$audit" ] || { echo "Invariant: no audit '$1'" >&2; exit 2; }
     head=${2:-HEAD}
     ground=$(sed -n 's/^ground:[[:space:]]*//p' "$audit" | head -1)
     tree=$(sed -n 's/^tree:[[:space:]]*//p' "$audit" | head -1)
     mode=$(sed -n 's/^mode:[[:space:]]*//p' "$audit" | head -1)
-    [ -n "$ground" ] || { echo "git-intent: audit has no ground" >&2; exit 2; }
-    [ -n "$tree" ] || { echo "git-intent: audit has no tree" >&2; exit 2; }
+    [ -n "$ground" ] || { echo "Invariant: audit has no ground" >&2; exit 2; }
+    [ -n "$tree" ] || { echo "Invariant: audit has no tree" >&2; exit 2; }
     if [ "$ground" = unborn ]; then
       if git rev-parse -q --verify "$head^{commit}" >/dev/null 2>&1; then echo "STALE: audit predates the root commit"; exit 1
       else echo "FRESH: repository remains unborn"; exit 0; fi
     fi
-    git rev-parse -q --verify "$head^{commit}" >/dev/null 2>&1 || { echo "git-intent: head '$head' does not resolve" >&2; exit 2; }
-    git rev-parse -q --verify "$tree^{tree}" >/dev/null 2>&1 || { echo "git-intent: audit tree '$tree' does not resolve" >&2; exit 2; }
+    git rev-parse -q --verify "$head^{commit}" >/dev/null 2>&1 || { echo "Invariant: head '$head' does not resolve" >&2; exit 2; }
+    git rev-parse -q --verify "$tree^{tree}" >/dev/null 2>&1 || { echo "Invariant: audit tree '$tree' does not resolve" >&2; exit 2; }
     if ! git merge-base --is-ancestor "$ground" "$head" 2>/dev/null; then echo "DIVERGED: $ground is not an ancestor of $head"; exit 1; fi
     case "$audit" in
       "$root"/*) audit_path=${audit#"$root"/} ;;

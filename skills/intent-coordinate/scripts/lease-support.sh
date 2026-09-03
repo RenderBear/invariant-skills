@@ -56,7 +56,7 @@ cmd=$1
 shift
 
 root=$(git rev-parse --show-toplevel 2>/dev/null) || {
-  echo "git-intent: not inside a Git repository" >&2
+  echo "Invariant: not inside a Git repository" >&2
   exit 2
 }
 runtime=$(sh "$script_dir/runtime-support.sh" root) || exit 2
@@ -85,7 +85,7 @@ duration_seconds() {
     *) n=$1; mul=1 ;;
   esac
   case "$n" in '' | *[!0-9]*)
-    echo "git-intent: invalid duration '$1' (use 2h, 30m, or seconds)" >&2
+    echo "Invariant: invalid duration '$1' (use 2h, 30m, or seconds)" >&2
     exit 2 ;;
   esac
   echo $((n * mul))
@@ -157,22 +157,22 @@ do_create() {
     esac
   done
   [ -n "$paths$interfaces$governance" ] || {
-    echo "git-intent: lease requires a path, interface, or governance claim" >&2
+    echo "Invariant: lease requires a path, interface, or governance claim" >&2
     exit 2
   }
   if [ -n "$domains" ]; then
-    [ -n "$digest" ] || { echo "git-intent: semantic domain claims require --digest" >&2; exit 2; }
+    [ -n "$digest" ] || { echo "Invariant: semantic domain claims require --digest" >&2; exit 2; }
     for domain in $domains; do
-      case "$domain" in *[!a-zA-Z0-9._-]*|'') echo "git-intent: malformed semantic domain '$domain'" >&2; exit 2 ;; esac
+      case "$domain" in *[!a-zA-Z0-9._-]*|'') echo "Invariant: malformed semantic domain '$domain'" >&2; exit 2 ;; esac
     done
     # shellcheck disable=SC2086
     digest_row=$(sh "$script_dir/../../intent-brief/scripts/brief-support.sh" digest $domains 2>&1) || {
-      printf 'git-intent: cannot validate lease digest: %s\n' "$digest_row" >&2
+      printf 'Invariant: cannot validate lease digest: %s\n' "$digest_row" >&2
       exit 2
     }
     actual_digest=$(printf '%s\n' "$digest_row" | sed -n 's/^DIGEST:[[:space:]]*//p')
     [ "$digest" = "$actual_digest" ] || {
-      echo "git-intent: lease governing digest is stale (expected $digest, current $actual_digest)" >&2
+      echo "Invariant: lease governing digest is stale (expected $digest, current $actual_digest)" >&2
       exit 2
     }
   fi
@@ -184,7 +184,7 @@ do_create() {
 
   file="$leases_dir/$unit.yml"
   if [ -f "$file" ]; then
-    echo "git-intent: live lease for '$unit' exists (owner $(field "$file" owner)) — renew or release it, never overwrite" >&2
+    echo "Invariant: live lease for '$unit' exists (owner $(field "$file" owner)) — renew or release it, never overwrite" >&2
     exit 2
   fi
 
@@ -206,7 +206,7 @@ do_create() {
   [ -n "$target" ] || target=$(sh "$script_dir/../../intent-brief/scripts/resolve-config.sh" 2>/dev/null |
     sed -n 's/^integration_branch_resolved:[[:space:]]*//p')
   if [ -n "$target" ] && ! git show-ref --verify -q "refs/heads/$target"; then
-    echo "git-intent: integration target '$target' does not exist locally" >&2
+    echo "Invariant: integration target '$target' does not exist locally" >&2
     exit 2
   fi
   [ -z "$target" ] || ground=$(git rev-parse -q --verify "refs/heads/$target" 2>/dev/null || echo "")
@@ -257,13 +257,13 @@ do_renew() {
   done
   seconds=$(duration_seconds "$duration")
   file="$leases_dir/$unit.yml"
-  [ -f "$file" ] || { echo "git-intent: no lease for '$unit'" >&2; exit 2; }
+  [ -f "$file" ] || { echo "Invariant: no lease for '$unit'" >&2; exit 2; }
   renewed=$(iso_utc "$now")
   expires=$(iso_utc $((now + seconds)))
   branch=$(field "$file" branch)
   tip=""
   [ -z "$branch" ] || tip=$(git rev-parse -q --verify "refs/heads/$branch" 2>/dev/null || echo "")
-  tmp=$(mktemp "${TMPDIR:-/tmp}/git-intent-lease.XXXXXX") || exit 2
+  tmp=$(mktemp "${TMPDIR:-/tmp}/invariant-lease.XXXXXX") || exit 2
   sed -e "s|^renewed:.*|renewed: $renewed|" -e "s|^expires:.*|expires: $expires|" \
     -e "s|^tip:.*|tip: ${tip:-unknown}|" "$file" >"$tmp" &&
     mv "$tmp" "$file"
@@ -276,7 +276,7 @@ do_fresh() {
   [ "$#" -eq 1 ] || usage
   unit=$1
   file="$leases_dir/$unit.yml"
-  [ -f "$file" ] || { echo "git-intent: no lease for '$unit'" >&2; exit 2; }
+  [ -f "$file" ] || { echo "Invariant: no lease for '$unit'" >&2; exit 2; }
   ground=$(field "$file" ground)
   target=$(field "$file" integration_target)
   [ -n "$target" ] || target=$(sh "$script_dir/../../intent-brief/scripts/resolve-config.sh" 2>/dev/null |
@@ -323,7 +323,7 @@ do_fresh() {
 do_release() {
   [ "$#" -eq 1 ] || usage
   file="$leases_dir/$1.yml"
-  [ -f "$file" ] || { echo "git-intent: no lease for '$1'" >&2; exit 2; }
+  [ -f "$file" ] || { echo "Invariant: no lease for '$1'" >&2; exit 2; }
   rm -f "$file"
   echo "released $1"
 }

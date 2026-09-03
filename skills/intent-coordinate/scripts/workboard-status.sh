@@ -36,7 +36,7 @@ fi
 
 plan="$plans_dir/$plan_id.yml"
 [ -f "$plan" ] || {
-  echo "git-intent: no plan '$plan_id'" >&2
+  echo "Invariant: no plan '$plan_id'" >&2
   exit 1
 }
 
@@ -44,7 +44,7 @@ target=$(sed -n 's/^integration_target:[[:space:]]*//p' "$plan" | head -1)
 [ -n "$target" ] || target=HEAD
 git rev-parse -q --verify "$target" >/dev/null 2>&1 || target=HEAD
 
-landed_file=$(mktemp "${TMPDIR:-/tmp}/git-intent-board-status.XXXXXX") || exit 2
+landed_file=$(mktemp "${TMPDIR:-/tmp}/invariant-board-status.XXXXXX") || exit 2
 trap 'rm -f "$landed_file"' EXIT HUP INT TERM
 git log --first-parent "$target" --format='%(trailers:key=Intent-Unit,valueonly,separator=%x0a)' 2>/dev/null |
   sed '/^$/d' | sort -u >"$landed_file"

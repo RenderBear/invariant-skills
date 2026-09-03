@@ -9,7 +9,7 @@ lease="$root/skills/intent-coordinate/scripts/lease-support.sh"
 runtime_support="$root/skills/intent-coordinate/scripts/runtime-support.sh"
 brief_support="$root/skills/intent-brief/scripts/brief-support.sh"
 audit_support="$root/skills/intent-audit/scripts/audit-support.sh"
-fixture=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-land-test.XXXXXX")
+fixture=$(mktemp -d "${TMPDIR:-/tmp}/invariant-land-test.XXXXXX")
 cleanup() { rm -rf "$fixture"; }
 trap cleanup EXIT HUP INT TERM
 

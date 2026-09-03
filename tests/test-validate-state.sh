@@ -4,7 +4,7 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 validator="$root/skills/intent-brief/scripts/validate-state.sh"
-fixture=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-state-test.XXXXXX")
+fixture=$(mktemp -d "${TMPDIR:-/tmp}/invariant-state-test.XXXXXX")
 cleanup() { rm -rf "$fixture"; }
 trap cleanup EXIT HUP INT TERM
 

@@ -5,7 +5,7 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 audit="$root/skills/intent-audit/scripts/audit-support.sh"
 validator="$root/skills/intent-brief/scripts/validate-state.sh"
-fixture=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-audit-test.XXXXXX")
+fixture=$(mktemp -d "${TMPDIR:-/tmp}/invariant-audit-test.XXXXXX")
 cleanup() { rm -rf "$fixture"; }
 trap cleanup EXIT HUP INT TERM
 

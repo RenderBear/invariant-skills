@@ -40,7 +40,7 @@ case "$mode" in
 esac
 
 root=$(git rev-parse --show-toplevel 2>/dev/null) || {
-  echo "git-intent: not inside a Git repository" >&2
+  echo "Invariant: not inside a Git repository" >&2
   exit 2
 }
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -70,7 +70,7 @@ while [ "$#" -gt 0 ]; do
     --reviewed) [ "$#" -ge 2 ] || usage; reviewed="$reviewed $2"; shift 2 ;;
     --boundary-review)
       [ "$#" -ge 2 ] || usage
-      [ -z "$boundary_review" ] || { echo "git-intent: pass exactly one --boundary-review" >&2; exit 2; }
+      [ -z "$boundary_review" ] || { echo "Invariant: pass exactly one --boundary-review" >&2; exit 2; }
       boundary_review=$2
       shift 2
       ;;
@@ -90,28 +90,28 @@ $1"
   esac
 done
 
-[ -n "$units" ] || { echo "git-intent: landing requires at least one unit id" >&2; exit 2; }
-[ -n "$scopes" ] || { echo "git-intent: landing requires at least one scope" >&2; exit 2; }
-[ "$mode" != direct ] || [ -n "$paths" ] || { echo "git-intent: direct landing requires --paths" >&2; exit 2; }
-[ -n "$boundary_review" ] || { echo "git-intent: landing requires exactly one --boundary-review disposition" >&2; exit 2; }
+[ -n "$units" ] || { echo "Invariant: landing requires at least one unit id" >&2; exit 2; }
+[ -n "$scopes" ] || { echo "Invariant: landing requires at least one scope" >&2; exit 2; }
+[ "$mode" != direct ] || [ -n "$paths" ] || { echo "Invariant: direct landing requires --paths" >&2; exit 2; }
+[ -n "$boundary_review" ] || { echo "Invariant: landing requires exactly one --boundary-review disposition" >&2; exit 2; }
 case "$boundary_review" in
   no-record|recorded) ;;
   audit:*)
     audit_id=${boundary_review#audit:}
-    case "$audit_id" in ''|*[!a-zA-Z0-9._-]*) echo "git-intent: invalid boundary audit id '$audit_id'" >&2; exit 2 ;; esac
+    case "$audit_id" in ''|*[!a-zA-Z0-9._-]*) echo "Invariant: invalid boundary audit id '$audit_id'" >&2; exit 2 ;; esac
     ;;
-  *) echo "git-intent: invalid --boundary-review '$boundary_review'" >&2; exit 2 ;;
+  *) echo "Invariant: invalid --boundary-review '$boundary_review'" >&2; exit 2 ;;
 esac
 [ "$boundary_review" != recorded ] || [ -n "$governance" ] || {
-  echo "git-intent: --boundary-review recorded requires at least one --governance reference" >&2
+  echo "Invariant: --boundary-review recorded requires at least one --governance reference" >&2
   exit 2
 }
 
 target=$(sh "$brief_dir/resolve-config.sh" | sed -n 's/^integration_branch_resolved:[[:space:]]*//p')
-[ -n "$target" ] || { echo "git-intent: no integration branch resolved" >&2; exit 2; }
+[ -n "$target" ] || { echo "Invariant: no integration branch resolved" >&2; exit 2; }
 current=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
 [ "$current" = "$target" ] || {
-  echo "git-intent: atomic landing must run in the integration worktree ('$target', currently '${current:-detached}')" >&2
+  echo "Invariant: atomic landing must run in the integration worktree ('$target', currently '${current:-detached}')" >&2
   exit 2
 }
 unborn=0
@@ -120,29 +120,29 @@ if [ -z "$old" ]; then
   if ! git rev-parse -q --verify HEAD >/dev/null 2>&1; then
     unborn=1
   else
-    echo "git-intent: integration branch '$target' has no commit" >&2
+    echo "Invariant: integration branch '$target' has no commit" >&2
     exit 2
   fi
 fi
 [ "$mode" != merge ] || [ "$unborn" -eq 0 ] || {
-  echo "git-intent: an unborn integration branch requires a direct first landing" >&2
+  echo "Invariant: an unborn integration branch requires a direct first landing" >&2
   exit 2
 }
 [ "$mode" != direct ] || [ "$unborn" -eq 1 ] || {
-  echo "git-intent: direct landing is reserved for the first commit on an unborn integration branch; use a work branch and merge" >&2
+  echo "Invariant: direct landing is reserved for the first commit on an unborn integration branch; use a work branch and merge" >&2
   exit 2
 }
 
 git diff --cached --quiet -- || {
-  echo "git-intent: staged changes exist; preserve or unstage them before atomic landing" >&2
+  echo "Invariant: staged changes exist; preserve or unstage them before atomic landing" >&2
   exit 2
 }
 if [ "$mode" = merge ] && [ -n "$(git status --porcelain)" ]; then
-  echo "git-intent: merge landing requires a clean integration worktree" >&2
+  echo "Invariant: merge landing requires a clean integration worktree" >&2
   exit 2
 fi
 
-tmp=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-land.XXXXXX")
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/invariant-land.XXXXXX")
 verify_dir="$tmp/verify"
 worktree_added=0
 cleanup() {
@@ -172,13 +172,13 @@ if [ "$mode" = direct ]; then
     GIT_INDEX_FILE="$index" git read-tree "$old^{tree}"
   fi
   printf '%s\n' "$paths" | sed '/^$/d' | while IFS= read -r path; do
-    case "$path" in /*|../*|*/../*|*'/..') echo "git-intent: invalid landing path '$path'" >&2; exit 2 ;; esac
+    case "$path" in /*|../*|*/../*|*'/..') echo "Invariant: invalid landing path '$path'" >&2; exit 2 ;; esac
     GIT_INDEX_FILE="$index" git add -A -- "$path"
   done
   tree=$(GIT_INDEX_FILE="$index" git write-tree)
   if [ "$unborn" -eq 0 ]; then
     [ "$tree" != "$(git rev-parse "$old^{tree}")" ] || {
-      echo "git-intent: selected paths produce no change" >&2
+      echo "Invariant: selected paths produce no change" >&2
       exit 2
     }
     candidate=$(git commit-tree "$tree" -p "$old" -F "$tmp/message")
@@ -187,12 +187,12 @@ if [ "$mode" = direct ]; then
   fi
 else
   branch_ref=$(git rev-parse -q --verify "refs/heads/$merge_branch^{commit}" 2>/dev/null) || {
-    echo "git-intent: merge branch '$merge_branch' does not exist locally" >&2
+    echo "Invariant: merge branch '$merge_branch' does not exist locally" >&2
     exit 2
   }
   merge_output=$(git merge-tree --write-tree "$old" "$branch_ref" 2>&1) || {
     printf '%s\n' "$merge_output" >&2
-    echo "git-intent: prospective merge conflicts; integration branch unchanged" >&2
+    echo "Invariant: prospective merge conflicts; integration branch unchanged" >&2
     exit 1
   }
   tree=$(printf '%s\n' "$merge_output" | sed -n '1p')
@@ -218,17 +218,17 @@ case "$verdict" in
   local|bounded) ;;
   open)
     if [ "$allow_open" -ne 1 ]; then
-      echo "git-intent: open governance boundary requires resolved authority (--allow-open)" >&2
+      echo "Invariant: open governance boundary requires resolved authority (--allow-open)" >&2
       exit 1
     fi
     ;;
   gated)
     [ "$allow_open" -eq 1 ] || {
-      echo "git-intent: gated governance transition requires resolved authority (--allow-open)" >&2
+      echo "Invariant: gated governance transition requires resolved authority (--allow-open)" >&2
       exit 1
     }
     ;;
-  *) echo "git-intent: could not classify prospective reach" >&2; exit 2 ;;
+  *) echo "Invariant: could not classify prospective reach" >&2; exit 2 ;;
 esac
 
 (cd "$verify_dir" && GIT_INTENT_INTEGRATION_TARGET="$target" GIT_INTENT_ALLOW_UNBORN="$unborn" sh "$brief_dir/validate-state.sh" --landing)
@@ -254,33 +254,33 @@ governance_exists() {
 case "$boundary_review" in
   no-record)
     if printf '%s\n' "$reach" | grep -q '^GOVERNANCE:'; then
-      echo "git-intent: governance changed; use --boundary-review recorded with --governance references" >&2
+      echo "Invariant: governance changed; use --boundary-review recorded with --governance references" >&2
       exit 1
     fi
     echo "BOUNDARY-REVIEW: no-record"
     ;;
   audit:*)
     if printf '%s\n' "$reach" | grep -q '^GOVERNANCE:'; then
-      echo "git-intent: governance changed; use --boundary-review recorded with --governance references" >&2
+      echo "Invariant: governance changed; use --boundary-review recorded with --governance references" >&2
       exit 1
     fi
     audit_id=${boundary_review#audit:}
     audit_file="$verify_dir/.intent/audits/$audit_id.yml"
-    [ -f "$audit_file" ] || { echo "git-intent: boundary audit '$audit_id' is absent from the candidate" >&2; exit 1; }
+    [ -f "$audit_file" ] || { echo "Invariant: boundary audit '$audit_id' is absent from the candidate" >&2; exit 1; }
     audit_mode=$(sed -n 's/^mode:[[:space:]]*//p' "$audit_file" | head -1 |
       sed 's/[[:space:]]*#.*$//; s/[[:space:]]*$//')
     [ "$audit_mode" = scope ] || {
-      echo "git-intent: boundary review requires a scoped audit" >&2
+      echo "Invariant: boundary review requires a scoped audit" >&2
       exit 1
     }
     if sed -n 's/^    disposition:[[:space:]]*//p' "$audit_file" |
         sed 's/[[:space:]]*#.*$//; s/[[:space:]]*$//' |
         grep -Eq '^(adoptable|needs-authority|needs-verifier)$'; then
-      echo "git-intent: boundary audit '$audit_id' has adoptable or unresolved findings" >&2
+      echo "Invariant: boundary audit '$audit_id' has adoptable or unresolved findings" >&2
       exit 1
     fi
     (cd "$verify_dir" && sh "$audit_dir/audit-support.sh" fresh "$audit_id" HEAD) || {
-      echo "git-intent: boundary audit '$audit_id' is not fresh for the candidate" >&2
+      echo "Invariant: boundary audit '$audit_id' is not fresh for the candidate" >&2
       exit 1
     }
     echo "BOUNDARY-REVIEW: audit:$audit_id — no governance adoption required"
@@ -288,7 +288,7 @@ case "$boundary_review" in
   recorded)
     for ref in $governance; do
       governance_exists "$ref" || {
-        echo "git-intent: boundary governance '$ref' is not an accepted candidate record" >&2
+        echo "Invariant: boundary governance '$ref' is not an accepted candidate record" >&2
         exit 1
       }
     done
@@ -303,7 +303,7 @@ run_locator() {
     command:*)
       path=${locator#command:}
       [ -f "$verify_dir/$path" ] && [ -x "$verify_dir/$path" ] || {
-        echo "git-intent: command verifier '$path' is missing or not executable" >&2
+        echo "Invariant: command verifier '$path' is missing or not executable" >&2
         return 1
       }
       (cd "$verify_dir" && "./$path")
@@ -316,7 +316,7 @@ run_locator() {
         *.py) (cd "$verify_dir" && python3 -m pytest "$spec") ;;
         *)
           [ -x "$verify_dir/$path" ] || {
-            echo "git-intent: test verifier '$locator' is not directly executable; use a command: wrapper" >&2
+            echo "Invariant: test verifier '$locator' is not directly executable; use a command: wrapper" >&2
             return 1
           }
           (cd "$verify_dir" && "./$path")
@@ -326,13 +326,13 @@ run_locator() {
     schema:*)
       path=${locator#schema:}; path=${path%%#*}
       [ -x "$verify_dir/$path" ] || {
-        echo "git-intent: schema verifier '$locator' needs an executable command: wrapper" >&2
+        echo "Invariant: schema verifier '$locator' needs an executable command: wrapper" >&2
         return 1
       }
       (cd "$verify_dir" && "./$path")
       ;;
     *)
-      echo "git-intent: unsupported check locator '$locator'" >&2
+      echo "Invariant: unsupported check locator '$locator'" >&2
       return 1
       ;;
   esac
@@ -358,7 +358,7 @@ printf '%s\n' "$verifier_rows" | sed -n 's/^VERIFY: [^ ]* //p' | while IFS= read
   [ -n "$locator" ] || continue
   case "$locator" in
     contract:*)
-      echo "git-intent: nested contract verifier '$locator' must resolve to an executable verifier before landing" >&2
+      echo "Invariant: nested contract verifier '$locator' must resolve to an executable verifier before landing" >&2
       exit 1
       ;;
     *) run_unique_locator "$locator" ;;
@@ -369,7 +369,7 @@ printf '%s\n' "$verifier_rows" | sed -n 's/^REVIEW: \([^ ]*\) .*/\1/p' | while I
   found=0
   for accepted in $reviewed; do [ "$accepted" = "$constraint" ] && found=1; done
   [ "$found" -eq 1 ] || {
-    echo "git-intent: affected semantic $constraint requires --reviewed $constraint after prospective-tree review" >&2
+    echo "Invariant: affected semantic $constraint requires --reviewed $constraint after prospective-tree review" >&2
     exit 1
   }
   echo "REVIEW: accepted — $constraint"
@@ -385,18 +385,18 @@ echo "CHECKS: $check_count unique"
 # cover the branch, integration target, changed paths, domains, and governance.
 if [ -n "$plan" ]; then
   plan_file="$runtime/plans/$plan.yml"
-  [ -f "$plan_file" ] || { echo "git-intent: no runtime plan '$plan'" >&2; exit 1; }
+  [ -f "$plan_file" ] || { echo "Invariant: no runtime plan '$plan'" >&2; exit 1; }
   sh "$coordinate_dir/workboard-support.sh" validate "$plan" >/dev/null || exit 1
   lease_files=""
   for unit in $units; do
     lease_file="$runtime/leases/$unit.yml"
-    [ -f "$lease_file" ] || { echo "git-intent: coordinated unit '$unit' has no live lease" >&2; exit 1; }
+    [ -f "$lease_file" ] || { echo "Invariant: coordinated unit '$unit' has no live lease" >&2; exit 1; }
     sh "$coordinate_dir/lease-support.sh" fresh "$unit" >/dev/null || exit 1
     lease_target=$(sed -n 's/^integration_target:[[:space:]]*//p' "$lease_file" | head -1)
-    [ "$lease_target" = "$target" ] || { echo "git-intent: lease '$unit' targets '$lease_target', not '$target'" >&2; exit 1; }
+    [ "$lease_target" = "$target" ] || { echo "Invariant: lease '$unit' targets '$lease_target', not '$target'" >&2; exit 1; }
     if [ "$mode" = merge ]; then
       lease_branch=$(sed -n 's/^branch:[[:space:]]*//p' "$lease_file" | head -1)
-      [ "$lease_branch" = "$merge_branch" ] || { echo "git-intent: lease '$unit' belongs to '$lease_branch', not '$merge_branch'" >&2; exit 1; }
+      [ "$lease_branch" = "$merge_branch" ] || { echo "Invariant: lease '$unit' belongs to '$lease_branch', not '$merge_branch'" >&2; exit 1; }
     fi
     lease_files="$lease_files $lease_file"
   done
@@ -411,28 +411,28 @@ if [ -n "$plan" ]; then
         case "$changed" in "$claim"/*) covered=1 ;; esac
       done
     done
-    [ "$covered" -eq 1 ] || { echo "git-intent: coordinated path '$changed' is outside the combined lease claims" >&2; exit 1; }
+    [ "$covered" -eq 1 ] || { echo "Invariant: coordinated path '$changed' is outside the combined lease claims" >&2; exit 1; }
   done
   for requested in $interfaces; do
     found=0; for lease_file in $lease_files; do
       values=$(sed -n 's/^interfaces:[[:space:]]*//p' "$lease_file" | head -1 | tr '[],' '   ')
       for value in $values; do [ "$value" = "$requested" ] && found=1; done
     done
-    [ "$found" -eq 1 ] || { echo "git-intent: interface '$requested' is absent from the combined lease claims" >&2; exit 1; }
+    [ "$found" -eq 1 ] || { echo "Invariant: interface '$requested' is absent from the combined lease claims" >&2; exit 1; }
   done
   for requested in $domains; do
     found=0; for lease_file in $lease_files; do
       values=$(sed -n 's/^domains:[[:space:]]*//p' "$lease_file" | head -1 | tr '[],' '   ')
       for value in $values; do [ "$value" = "$requested" ] && found=1; done
     done
-    [ "$found" -eq 1 ] || { echo "git-intent: domain '$requested' is absent from the combined lease context" >&2; exit 1; }
+    [ "$found" -eq 1 ] || { echo "Invariant: domain '$requested' is absent from the combined lease context" >&2; exit 1; }
   done
   for requested in $governance; do
     found=0; for lease_file in $lease_files; do
       values=$(sed -n 's/^governance:[[:space:]]*//p' "$lease_file" | head -1 | tr '[],' '   ')
       for value in $values; do [ "$value" = "$requested" ] && found=1; done
     done
-    [ "$found" -eq 1 ] || { echo "git-intent: governance '$requested' is absent from the combined lease claims" >&2; exit 1; }
+    [ "$found" -eq 1 ] || { echo "Invariant: governance '$requested' is absent from the combined lease claims" >&2; exit 1; }
   done
 fi
 

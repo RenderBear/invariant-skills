@@ -14,7 +14,7 @@ brief_script="$script_dir/../../intent-brief/scripts/brief-support.sh"
 }
 
 git rev-parse --show-toplevel >/dev/null 2>&1 || {
-  echo "git-intent: not inside a Git repository" >&2
+  echo "Invariant: not inside a Git repository" >&2
   exit 2
 }
 runtime=$(sh "$script_dir/runtime-support.sh" root)
@@ -23,7 +23,7 @@ case "$2" in
   */*) plan=$2 ;;
   *) plan="$runtime/plans/$2.yml" ;;
 esac
-[ -f "$plan" ] || { echo "git-intent: no plan '$2'" >&2; exit 2; }
+[ -f "$plan" ] || { echo "Invariant: no plan '$2'" >&2; exit 2; }
 
 version=$(sed -n 's/^version:[[:space:]]*//p' "$plan" | head -1)
 plan_id=$(sed -n 's/^id:[[:space:]]*//p' "$plan" | head -1)

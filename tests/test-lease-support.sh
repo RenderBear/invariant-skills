@@ -6,7 +6,7 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 lease="$root/skills/intent-coordinate/scripts/lease-support.sh"
-fixture=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-lease-test.XXXXXX")
+fixture=$(mktemp -d "${TMPDIR:-/tmp}/invariant-lease-test.XXXXXX")
 cleanup() { rm -rf "$fixture"; }
 trap cleanup EXIT HUP INT TERM
 
@@ -121,7 +121,7 @@ printf '%s\n' "$out" | grep -q 'renewed 1' || die "apply renews the alive worker
 [ -f "$leases/q1.yml" ] || die "renewed lease survives apply"
 ok "expiry schedules the check: QUIESCENT when unmoved, RENEW when the tip advanced"
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/git-intent-lease-test-ed.XXXXXX")
+tmp=$(mktemp "${TMPDIR:-/tmp}/invariant-lease-test-ed.XXXXXX")
 sed -e 's|^branch: unit/q1$|branch: unit/gone|' -e "s|^worktree: .*|worktree: /nonexistent-worktree|" \
   -e 's|^expires: .*|expires: 2099-01-01T00:00:00Z|' "$leases/q1.yml" >"$tmp" && mv "$tmp" "$leases/q1.yml"
 out=$(cd "$fixture" && sh "$lease" reap)

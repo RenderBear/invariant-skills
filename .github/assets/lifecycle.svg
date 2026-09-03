@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420" role="img" aria-labelledby="title desc">
-  <title id="title">The git-intent lifecycle: brief, work branch, candidate tree, verification, and an atomic integration ref update</title>
+  <title id="title">The Invariant lifecycle: brief, work branch, candidate tree, verification, and an atomic integration ref update</title>
   <desc id="desc">A read-only brief leads to an isolated work branch, an exact prospective tree, verification against that tree, and a compare-and-swap of the integration ref. Tracked governance sits inside Git and both informs the brief and is enforced at verification. The planning plane sits outside Git because its runtime is ignored.</desc>
 
   <defs>
