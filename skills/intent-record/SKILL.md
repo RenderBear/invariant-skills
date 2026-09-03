@@ -43,5 +43,13 @@ meaning rather than incidental technology: for example, authoritative durable st
 survival, transactionality, recovery, or migration compatibility rather than merely "uses
 PostgreSQL."
 
+Treat accepted ids as stable keys. Name domains with stable responsibility nouns, contracts after
+the relied-on surface and include a version when compatibility identity matters, and constraints
+after the unversioned invariant or ownership boundary they preserve. Version temporary restrictions
+only when their lifecycle matters. Prefer a concise invariant name over restating the full assertion.
+Rename an accepted id only as an explicit governance migration, never as cosmetic cleanup; update
+all live references and preserve the old name in defining material because commit history is
+immutable.
+
 For incompatible concurrent governance edits, read
 [references/reconciliation.md](references/reconciliation.md).

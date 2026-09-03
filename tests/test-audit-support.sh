@@ -41,7 +41,8 @@ printf '%s\n' "$out" | grep -q '^TREE: ' || die "tree missing"
 printf '%s\n' "$out" | grep -q '^DERIVED: area.src$' || die "derived mechanical scope missing"
 printf '%s\n' "$out" | grep -q '^DOMAIN: ocr.engine$' || die "existing semantic domain missing"
 printf '%s\n' "$out" | grep -q '^SOURCE: docs/architecture.md$' || die "architecture source missing"
-printf '%s\n' "$out" | grep -q '^NEXT: write semantic findings to .intent/audits/' || die "record transition missing"
+printf '%s\n' "$out" | grep -q '^NEXT: classify findings, then present one recommended transition and any required decision$' ||
+  die "directed audit transition missing"
 printf '%s\n' "$out" | grep -q '^routes:' && die "audit still proposes routes"
 ok "scoped audit emits causal evidence without inventing semantic records"
 

@@ -30,6 +30,11 @@ runs checks against that exact tree, and compare-and-swaps the integration ref. 
 verification, missing semantic review, stale or mismatched lease, changed target, or unresolved
 governance leaves the ref unchanged.
 
+After landing, give a short decision-oriented report: durable meaning changed, governance merely
+reviewed, unique checks run, landing or divergence result, and anything intentionally unresolved.
+Omit empty categories, use human language before identifiers, and do not replay the complete reach
+output.
+
 `TOPOLOGY-NEW` output means the candidate introduced a mechanical area or package scope absent from
 the integration tree. Treat it as a prompt to recheck durable meaning, never as evidence that the
 scope is a semantic domain or requires governance by itself.

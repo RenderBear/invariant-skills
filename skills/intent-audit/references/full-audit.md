@@ -17,4 +17,5 @@ durable observations, authority questions, and no-action areas.
 
 Write one or more `.intent/audits/<id>.yml` reports with causal grounds. Run declared contract
 verifiers when safe. A failure is evidence, never permission to rewrite the promise. End each batch
-with the exact next transition to `intent-record`, resolution, verifier work, or no action.
+with one plain-language recommendation, any decision needed from the user, what happens next, and
+the exact transition to `intent-record`, resolution, verifier work, or no action.

@@ -21,7 +21,13 @@ findings. Classify each finding for the reader as adoptable, needing authority, 
 observation-only, or no action. Existing implementation and history are evidence, never normative
 authority.
 
-End with one explicit transition:
+End the user-facing result with a short closeout: group findings by what is ready, what needs a
+decision or verifier, and what needs no action; recommend one next step; and say what follows from
+it. Lead with plain-language meaning and put finding or governance ids in parentheses. When human
+authority is required, ask one direct question that contrasts the concrete behaviors and recommends
+one of them. Do not leave the user with only a command or transition label.
+
+Finish with exactly one existing transition:
 
 - `NO RECORD NEEDED`;
 - `RECORD READY — intent-record adopt`;

@@ -22,6 +22,12 @@ code, and referenced material; never infer domain membership mechanically from a
 6. Before the first repository mutation, create `intent/work/<uuid>` from the captured integration
    head. Use `intent-coordinate` only when useful independent work requires it.
 
+Before mutation, give the user a compact intent receipt: the goal in plain language, whether durable
+meaning appears unchanged, changed, or uncertain, the relevant accepted intent, and any decision
+that genuinely needs their authority. Put identifiers after their human meaning. For ordinary local
+work with no ambiguity, compress this to one sentence. During implementation, report only changes
+to that receipt rather than repeating the full scope.
+
 Posture is:
 
 - `local` — no accepted binding record intersects;
