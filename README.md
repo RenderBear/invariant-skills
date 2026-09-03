@@ -1,11 +1,9 @@
-# Invariant
-
-**Preserve accepted meaning across agentic change.**
+# Invariant — Durable intent and causal coordination for agentic work
 
 Invariant uses Git's own mechanics to keep accepted architectural meaning durable, active coordination disposable, and both progressively informed by the repository itself.
 
 - **Governance:** Stable responsibilities, relied-on promises, and architectural limits are discovered progressively, accepted explicitly, tracked with the repository, and verified mechanically where possible.
-- **Planning:** Plans, claims, and leases coordinate active branch work locally, then may disappear after the work safely converges.
+- **Coordination:** Plans, claims, and leases coordinate active branch work locally, then may disappear after the work safely converges.
 
 ![A read-only brief leads to an isolated work branch, an exact candidate tree, and verification against that tree before a compare-and-swap advances the integration ref. Tracked governance sits inside Git and feeds both the brief and verification; the ignored planning runtime sits outside it.](.github/assets/lifecycle.svg)
 
@@ -28,16 +26,18 @@ always-loaded agent instructions.
 ## Optional full audit
 
 Ordinary work does not require repository-wide setup. When inheriting an existing repository or
-wanting a deliberate architecture review, ask your agent:
+wanting a deliberate architecture review, run:
 
-> Run a full Invariant audit of this repository in assisted mode. Explain the findings in plain
-> language, recommend one next action, and do not adopt governance until I approve.
+```text
+/intent-audit full
+```
 
 The audit records causal evidence without making it authoritative. Its closeout tells you exactly
 what to do next:
 
 - `NO RECORD NEEDED` — continue normal work; no governance adoption is required.
-- `RECORD READY` — ask the agent to record the recommended responsibility, promise, or constraint.
+- `RECORD READY` — run `/intent-record adopt` to record the recommended responsibility, promise, or
+  constraint.
 - `RESOLUTION REQUIRED` — answer the single behavior question before adoption.
 - `VERIFIER REQUIRED` — implement the named executable check before recording the contract.
 
