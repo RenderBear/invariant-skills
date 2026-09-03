@@ -161,12 +161,30 @@ printf '%s\n' "$out" | grep -q '^AFFECTED: contract:ocr.setup-doc (open)$' || di
 printf '%s\n' "$out" | grep -q 'contract:ocr.submit-doc' && die "candidate routing selected an unchanged Markdown section"
 ok "candidate-tree Markdown hunks route section-specific material"
 
+out=$(cd "$fixture" && sh "$brief" material-changes "$readme_base" HEAD ocr.external)
+printf '%s\n' "$out" | grep -q '^MATERIAL-CHANGED: architecture:README.md#local-setup$' || die "changed selected material was not reported"
+printf '%s\n' "$out" | grep -q '#submit-and-observe-a-job$' && die "unchanged selected material was reported"
+ok "selected governing material changes are section-aware"
+
 out=$(cd "$fixture" && sh "$brief" reach --paths README.md)
 printf '%s\n' "$out" | grep -q '^AFFECTED: contract:ocr.submit-doc (open)$' || die "hypothetical path check narrowed without diff evidence"
 printf '%s\n' "$out" | grep -q '^AFFECTED: contract:ocr.setup-doc (open)$' || die "hypothetical path check omitted anchored material"
 ok "path-only Markdown checks remain conservatively file-wide"
 
+history_base=$(git -C "$fixture" rev-parse HEAD)
+printf '# Changed architecture\n' >"$fixture/docs/architecture.md"
+git -C "$fixture" commit -qam "temporarily change architecture"
+git -C "$fixture" checkout -q "$history_base" -- docs/architecture.md
+git -C "$fixture" commit -qm "restore architecture"
+out=$(cd "$fixture" && sh "$brief" reach --history "$history_base")
+printf '%s\n' "$out" | grep -q '^AFFECTED: contract:ocr.protocol.v1 (open)$' || die "history reach hid a reverted material change"
+out=$(cd "$fixture" && sh "$brief" reach "$history_base")
+printf '%s\n' "$out" | grep -q '^REACH: local$' || die "net-tree reach unexpectedly retained a reverted change"
+ok "history reach preserves intervening path evidence across reverts"
+
 digest=$(cd "$fixture" && sh "$brief" digest ocr.external | sed 's/^DIGEST: //')
+at_digest=$(cd "$fixture" && sh "$brief" digest --at HEAD ocr.external | sed 's/^DIGEST: //')
+[ "$digest" = "$at_digest" ] || die "commit-addressed governance digest differs from the same working tree"
 printf 'note\n' >"$fixture/.intent/observations/doc-location.yml"
 after_observation=$(cd "$fixture" && sh "$brief" digest ocr.external | sed 's/^DIGEST: //')
 [ "$digest" = "$after_observation" ] || die "non-authoritative observation entered governing digest"
@@ -174,6 +192,8 @@ sed 's/Provider details remain/Provider-specific details remain/' "$fixture/.int
 mv "$fixture/.intent/CONSTRAINTS.tmp" "$fixture/.intent/CONSTRAINTS.yml"
 after_constraint=$(cd "$fixture" && sh "$brief" digest ocr.external | sed 's/^DIGEST: //')
 [ "$digest" != "$after_constraint" ] || die "constraint change did not change digest"
+at_digest=$(cd "$fixture" && sh "$brief" digest --at HEAD ocr.external | sed 's/^DIGEST: //')
+[ "$digest" = "$at_digest" ] || die "working governance leaked into commit-addressed digest"
 if (cd "$fixture" && sh "$brief" observe "$digest" ocr.external >/dev/null 2>&1); then die "stale digest was accepted"; fi
 git -C "$fixture" checkout -q -- .intent/CONSTRAINTS.yml
 rm "$fixture/.intent/observations/doc-location.yml"
@@ -192,4 +212,4 @@ git -C "$fixture" commit -qam "$msg"
 (cd "$fixture" && sh "$brief" trailer HEAD >/dev/null) || die "honest derived scope/domain trailers failed"
 ok "commit trailers retain mechanical scope and semantic domain separately"
 
-echo "13 brief checks passed"
+echo "15 brief checks passed"

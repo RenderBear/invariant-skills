@@ -30,13 +30,14 @@ fail() {
 }
 
 # The first first-parent commit carrying Intent-Boundary is the adoption
-# anchor. Pre-adoption history remains valid, but every integration commit from
-# that anchor through the prospective landing must preserve a disposition.
+# anchor. Later ordinary commits may remain temporarily unattested, but the
+# next attested landing must cover the complete contiguous suffix after the
+# preceding attestation. No history rewrite is required.
 validate_landing_history() {
   history="$tmp_root/landing-history"
   errors="$tmp_root/landing-history-errors"
   if ! git log --first-parent --reverse \
-      --format='%H%x1c%(trailers:key=Intent-Boundary,valueonly,separator=%x1d)%x1c%(trailers:key=Intent-Governance,valueonly,separator=%x1d)' \
+      --format='%H%x1c%P%x1c%(trailers:key=Intent-Boundary,valueonly,separator=%x1d)%x1c%(trailers:key=Intent-Governance,valueonly,separator=%x1d)%x1c%(trailers:key=Intent-Covers,valueonly,separator=%x1d)' \
       HEAD >"$history" 2>/dev/null; then
     fail "landing history HEAD does not resolve"
     return
@@ -44,11 +45,15 @@ validate_landing_history() {
   awk '
     BEGIN { field=sprintf("%c",28); multi=sprintf("%c",29); FS=field }
     {
-      commit=$1; boundary=$2; governance=$3
-      if(!adopted && boundary!="") adopted=1
+      commit=$1; parents=$2; boundary=$3; governance=$4; covers=$5
+      split(parents, parent, " "); first_parent=parent[1]
+      if(!adopted && boundary!="") {
+        adopted=1
+        if(covers!="") print "landing history adoption commit " substr(commit,1,12) " has unexpected Intent-Covers"
+      }
       if(!adopted) next
       label="landing history commit " substr(commit,1,12)
-      if(boundary=="") { print label " is missing Intent-Boundary"; next }
+      if(boundary=="") { gap=1; tip=commit; next }
       if(index(boundary,multi)) { print label " has multiple Intent-Boundary trailers"; next }
       if(boundary!="no-record" && boundary!="recorded" && boundary!~/^audit:[a-zA-Z0-9._-]+$/) {
         print label " has an invalid Intent-Boundary disposition"
@@ -56,6 +61,19 @@ validate_landing_history() {
       }
       if(boundary=="recorded" && governance=="")
         print label " uses Intent-Boundary recorded without Intent-Governance"
+      if(last!="") {
+        if(gap) {
+          expected=last ".." first_parent
+          if(covers=="") print label " must cover unattested range " expected
+          else if(index(covers,multi)) print label " has multiple Intent-Covers trailers"
+          else if(covers!=expected) print label " covers " covers " but expected " expected
+        } else if(covers!="") print label " has Intent-Covers without an unattested range"
+      }
+      last=commit
+      gap=0
+    }
+    END {
+      if(adopted && gap) print "unattested integration range " last ".." tip " requires the next landing to carry Intent-Covers"
     }
   ' "$history" >"$errors"
   while IFS= read -r message; do [ -z "$message" ] || fail "$message"; done <"$errors"

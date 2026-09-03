@@ -10,16 +10,18 @@ usage() {
 usage:
   brief-support.sh map
   brief-support.sh rows <domain> [<domain>...]
-  brief-support.sh digest <domain> [<domain>...]
+  brief-support.sh digest [--at <commit>] <domain> [<domain>...]
   brief-support.sh observe <expected-digest> <domain> [<domain>...]
-  brief-support.sh reach [<base-ref>|--root] [--paths <path>...]
+  brief-support.sh reach [<base-ref>|--root|--history <base-ref>] [--paths <path>...]
                          [--domain <id>]... [--interface <name>]...
-  brief-support.sh verifiers [<base-ref>|--root] [--paths <path>...]
+  brief-support.sh verifiers [<base-ref>|--root|--history <base-ref>] [--paths <path>...]
                              [--domain <id>]... [--interface <name>]...
       Reach and verifier selection combine mechanical path/interface
       intersections with semantic domains selected by the caller. Contracts
       are executable boundary promises. Constraints always emit REVIEW and
       may additionally emit executable VERIFY rows.
+  brief-support.sh material-changes <base-ref> <tip-ref> <domain>...
+      Report selected defining-material locators changed between two commits.
   brief-support.sh message <subject> --unit <id>... --scope <derived-scope>...
                            [--domain <id>...] [--plan <plan-id>]
   brief-support.sh trailer <commit>
@@ -42,12 +44,20 @@ runtime_script="$script_dir/../../intent-coordinate/scripts/runtime-support.sh"
 domains_file=.intent/DOMAINS.yml
 contracts_file=.intent/CONTRACTS.yml
 constraints_file=.intent/CONSTRAINTS.yml
+governance_at=""
 
 slug() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/-/g'; }
 normalise_refs() { printf '%s' "$1" | tr -d '[],' | tr ' ' '\n' | sed '/^$/d'; }
 
+governance_content() {
+  file=$1
+  if [ -n "$governance_at" ]; then git show "$governance_at:$file" 2>/dev/null || true
+  elif [ -f "$file" ]; then cat "$file"
+  fi
+}
+
 domain_rows() {
-  [ -f "$domains_file" ] || return 0
+  governance_content "$domains_file" |
   awk '
     function val(line){sub(/^[^:]*: */,"",line); sub(/[[:space:]]+#.*$/, "", line); gsub(/\|/,"%7C",line); return line}
     function emit(){if(id!="") print id "|" parent "|" description "|" material "|" authority}
@@ -57,11 +67,11 @@ domain_rows() {
     id!="" && /^    material:/ {material=val($0); next}
     id!="" && /^    authority:/ {authority=val($0); next}
     END{emit()}
-  ' "$domains_file"
+  '
 }
 
 contract_rows() {
-  [ -f "$contracts_file" ] || return 0
+  governance_content "$contracts_file" |
   awk '
     function val(line){sub(/^[^:]*: */,"",line); sub(/[[:space:]]+#.*$/, "", line); gsub(/\|/,"%7C",line); return line}
     function emit(){if(id!="") print id "|" between "|" surfaces "|" material "|" verifies "|" assertion "|" authority}
@@ -73,11 +83,11 @@ contract_rows() {
     id!="" && /^    assertion:/ {assertion=val($0); next}
     id!="" && /^    authority:/ {authority=val($0); next}
     END{emit()}
-  ' "$contracts_file"
+  '
 }
 
 constraint_rows() {
-  [ -f "$constraints_file" ] || return 0
+  governance_content "$constraints_file" |
   awk '
     function val(line){sub(/^[^:]*: */,"",line); sub(/[[:space:]]+#.*$/, "", line); gsub(/\|/,"%7C",line); return line}
     function emit(){if(id!="") print id "|" applies "|" surfaces "|" material "|" verifies "|" assertion "|" authority}
@@ -89,7 +99,7 @@ constraint_rows() {
     id!="" && /^    assertion:/ {assertion=val($0); next}
     id!="" && /^    authority:/ {authority=val($0); next}
     END{emit()}
-  ' "$constraints_file"
+  '
 }
 
 is_test_dir() { case "$1" in tests|test|spec|__tests__) return 0 ;; *) return 1 ;; esac; }
@@ -155,6 +165,16 @@ changed_paths() {
   } | sed '/^$/d' | sort -u
 }
 
+changed_paths_history() {
+  base=$1
+  git rev-list --first-parent --reverse "$base..HEAD" 2>/dev/null |
+  while IFS= read -r commit; do
+    [ -n "$commit" ] || continue
+    parent=$(git rev-parse "$commit^1" 2>/dev/null) || continue
+    git diff --name-only "$parent" "$commit" -- 2>/dev/null
+  done | sed '/^$/d' | sort -u
+}
+
 collect_inputs() {
   path_file=$1; domain_file=$2; interface_file=$3; base_file=$4; shift 4
   : >"$path_file"; : >"$domain_file"; : >"$interface_file"; : >"$base_file"
@@ -162,6 +182,11 @@ collect_inputs() {
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --root) printf '%s\n' --root >"$base_file"; shift ;;
+      --history)
+        [ "$#" -ge 2 ] && [ ! -s "$base_file" ] || usage
+        printf '%s\nhistory\n' "$2" >"$base_file"
+        shift 2
+        ;;
       --domain) [ "$#" -ge 2 ] || usage; printf '%s\n' "$2" >>"$domain_file"; shift 2 ;;
       --interface) [ "$#" -ge 2 ] || usage; printf '%s\n' "$2" >>"$interface_file"; shift 2 ;;
       --paths)
@@ -174,7 +199,9 @@ collect_inputs() {
   done
   if [ "$explicit_paths" -eq 0 ]; then
     base=$(sed -n '1p' "$base_file")
+    history=$(sed -n '2p' "$base_file")
     if [ "$base" = --root ]; then git ls-tree -r --name-only HEAD -- 2>/dev/null >"$path_file"
+    elif [ "$history" = history ]; then changed_paths_history "$base" >"$path_file"
     else changed_paths "$base" >"$path_file"
     fi
   fi
@@ -239,10 +266,14 @@ markdown_section_bounds() {
 # to narrow the locator safely. Unknown evidence deliberately falls back to
 # file-wide matching in path_hits.
 markdown_section_hit() {
-  path=$1; anchor=$2; base=$3; scratch=$4
+  path=$1; anchor=$2; base=$3; scratch=$4; tip=${5:-}
   case "$path" in *.md|*.markdown|*.MD|*.MARKDOWN) ;; *) return 2 ;; esac
   : >"$scratch/diff"
-  if [ -n "$base" ] && [ "$base" != --root ]; then
+  if [ -n "$tip" ]; then
+    git diff --unified=0 "$base" "$tip" -- "$path" >"$scratch/diff" 2>/dev/null || return 2
+    git show "$base:$path" >"$scratch/old" 2>/dev/null || : >"$scratch/old"
+    git show "$tip:$path" >"$scratch/new" 2>/dev/null || : >"$scratch/new"
+  elif [ -n "$base" ] && [ "$base" != --root ]; then
     git diff --unified=0 "$base" -- "$path" >"$scratch/diff" 2>/dev/null || return 2
     git show "$base:$path" >"$scratch/old" 2>/dev/null || : >"$scratch/old"
     if [ -f "$path" ]; then cp "$path" "$scratch/new"; else : >"$scratch/new"; fi
@@ -285,7 +316,7 @@ markdown_section_hit() {
 }
 
 path_hits() {
-  wanted=$1; locators=$2; base=${3:-}; scratch=${4:-}
+  wanted=$1; locators=$2; base=${3:-}; scratch=${4:-}; tip=${5:-}
   for locator in $(normalise_refs "$locators"); do
     case "$locator" in task:*|url:*|interface:*) continue ;; esac
     path=${locator#*:}
@@ -296,7 +327,7 @@ path_hits() {
       [ -n "$changed" ] || continue
       if [ "$changed" = "$path" ]; then
         if [ -n "$anchor" ] && [ -n "$scratch" ]; then
-          markdown_section_hit "$path" "$anchor" "$base" "$scratch"
+          markdown_section_hit "$path" "$anchor" "$base" "$scratch" "$tip"
           section_result=$?
           [ "$section_result" -eq 1 ] || return 0
         else
@@ -441,7 +472,45 @@ do_rows() {
 }
 
 compute_digest() { governing_content "$@" | sort | git hash-object --stdin; }
-do_digest() { printf 'DIGEST: %s\n' "$(compute_digest "$@")"; }
+do_digest() {
+  if [ "${1:-}" = --at ]; then
+    [ "$#" -ge 2 ] || usage
+    governance_at=$2
+    git rev-parse -q --verify "$governance_at^{commit}" >/dev/null 2>&1 || {
+      echo "Invariant: governance commit '$governance_at' does not resolve" >&2
+      return 2
+    }
+    shift 2
+  fi
+  printf 'DIGEST: %s\n' "$(compute_digest "$@")"
+}
+
+do_material_changes() {
+  [ "$#" -ge 2 ] || usage
+  base=$1; tip=$2; shift 2
+  git rev-parse -q --verify "$base^{commit}" >/dev/null 2>&1 || {
+    echo "Invariant: material base '$base' does not resolve" >&2
+    return 2
+  }
+  git rev-parse -q --verify "$tip^{commit}" >/dev/null 2>&1 || {
+    echo "Invariant: material tip '$tip' does not resolve" >&2
+    return 2
+  }
+  wanted=$(mktemp "${TMPDIR:-/tmp}/invariant-material-paths.XXXXXX") || exit 2
+  materials=$(mktemp "${TMPDIR:-/tmp}/invariant-material-refs.XXXXXX") || { rm -f "$wanted"; exit 2; }
+  scratch=$(mktemp -d "${TMPDIR:-/tmp}/invariant-material-sections.XXXXXX") || { rm -f "$wanted" "$materials"; exit 2; }
+  git diff --name-only "$base" "$tip" -- >"$wanted"
+  governing_content "$@" | awk -F'|' '$1=="DOMAIN" || $1=="CONTRACT" || $1=="CONSTRAINT" {print $5}' >"$materials"
+  while IFS= read -r refs; do
+    for locator in $(normalise_refs "$refs"); do
+      case "$locator" in task:*|url:*) continue ;; esac
+      if path_hits "$wanted" "$locator" "$base" "$scratch" "$tip"; then
+        printf 'MATERIAL-CHANGED: %s\n' "$locator"
+      fi
+    done
+  done <"$materials"
+  rm -rf "$scratch"; rm -f "$wanted" "$materials"
+}
 do_observe() {
   [ "$#" -ge 1 ] || usage; expected=$1; shift; actual=$(compute_digest "$@")
   if [ "$actual" = "$expected" ]; then echo "OBSERVED: $actual"; else echo "STALE: expected $expected actual $actual"; return 1; fi
@@ -507,6 +576,7 @@ case "$cmd" in
   rows) do_rows "$@" ;;
   digest) do_digest "$@" ;;
   observe) do_observe "$@" ;;
+  material-changes) do_material_changes "$@" ;;
   reach) with_inputs reach "$@" ;;
   verifiers) with_inputs verifiers "$@" ;;
   message) do_message "$@" ;;

@@ -5,12 +5,14 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 land="$root/skills/intent-land/scripts/land-support.sh"
+direct_edit="$root/skills/intent-land/scripts/direct-edit.sh"
 lease="$root/skills/intent-coordinate/scripts/lease-support.sh"
 runtime_support="$root/skills/intent-coordinate/scripts/runtime-support.sh"
 brief_support="$root/skills/intent-brief/scripts/brief-support.sh"
 audit_support="$root/skills/intent-audit/scripts/audit-support.sh"
 fixture=$(mktemp -d "${TMPDIR:-/tmp}/invariant-land-test.XXXXXX")
-cleanup() { rm -rf "$fixture"; }
+caller="$fixture-caller"
+cleanup() { rm -rf "$fixture" "$caller"; }
 trap cleanup EXIT HUP INT TERM
 
 git -C "$fixture" init -qb main
@@ -19,6 +21,7 @@ git -C "$fixture" config user.email test@example.com
 git -C "$fixture" config commit.gpgsign false
 mkdir -p "$fixture/.intent/audits" "$fixture/docs" "$fixture/src" "$fixture/ui" "$fixture/checks"
 printf '# Architecture\n' >"$fixture/docs/architecture.md"
+printf '*.pdf\n' >"$fixture/.gitignore"
 printf 'one\n' >"$fixture/src/a.txt"
 printf 'ui\n' >"$fixture/ui/view.txt"
 cat >"$fixture/checks/verify.sh" <<'EOF'
@@ -248,21 +251,84 @@ printf '%s\n' "$out" | grep -q '^LANDED:' || die "fresh matching lease did not l
 [ -f "$runtime/plans/bundle.yml" ] || die "incomplete plan was removed"
 ok "matching coordinated lease is authenticated and released"
 
+last_attested=$(git -C "$fixture" rev-parse HEAD)
 printf 'bypass\n' >"$fixture/ui/bypass.txt"
 git -C "$fixture" add ui/bypass.txt
 git -C "$fixture" commit -qm "plain integration commit"
+unattested_tip=$(git -C "$fixture" rev-parse HEAD)
 start_branch intent/work/after-bypass
 printf 'after bypass\n' >"$fixture/ui/after-bypass.txt"
 finish_branch "work after bypass"
+out=$(cd "$fixture" && sh "$land" merge intent/work/after-bypass "cover bypass history" \
+  --unit after-bypass --scope area.ui --boundary-review no-record)
+expected_cover="$last_attested..$unattested_tip"
+printf '%s\n' "$out" | grep -qxF "COVERAGE: $expected_cover" || die "landing did not report the covered first-parent suffix"
+git -C "$fixture" log -1 --format='%(trailers:key=Intent-Covers,valueonly)' | grep -qxF "$expected_cover" ||
+  die "range attestation was not preserved in the landing commit"
+(cd "$fixture" && sh "$root/skills/intent-brief/scripts/validate-state.sh" --landing >/dev/null) ||
+  die "covered first-parent history did not validate"
+ok "next landing append-only attests an ordinary integration commit"
+
+start_branch intent/work/other-worktree
+printf 'from another worktree\n' >"$fixture/ui/from-caller.txt"
+finish_branch "other worktree candidate"
+printf 'downloaded artifact\n' >"$fixture/downloaded.pdf"
+git -C "$fixture" worktree add -q -b caller "$caller" main
+printf 'caller artifact\n' >"$caller/caller.tmp"
+out=$(cd "$caller" && sh "$land" merge intent/work/other-worktree "land elsewhere" \
+  --target main --unit other-worktree --scope area.ui --boundary-review no-record)
+printf '%s\n' "$out" | grep -q '^LANDED:' || die "non-target worktree landing failed"
+[ -f "$fixture/ui/from-caller.txt" ] || die "checked-out integration worktree was not synchronized"
+[ -f "$fixture/downloaded.pdf" ] || die "non-colliding integration artifact was removed"
+[ -f "$caller/caller.tmp" ] || die "dirty caller artifact was removed"
+ok "landing runs outside main and preserves non-colliding untracked files"
+
+start_branch intent/work/collision
+printf 'candidate\n' >"$fixture/collision.pdf"
+git -C "$fixture" add -f collision.pdf
+finish_branch "colliding candidate"
+printf 'local download\n' >"$fixture/collision.pdf"
 old=$(git -C "$fixture" rev-parse HEAD)
-if out=$(cd "$fixture" && sh "$land" merge intent/work/after-bypass "reject bypass history" \
-    --unit after-bypass --scope area.ui --boundary-review no-record 2>&1); then
-  die "landing accepted an integration commit without Intent-Boundary"
+if out=$(cd "$caller" && sh "$land" merge intent/work/collision "reject collision" \
+    --target main --unit collision --scope area.root --boundary-review no-record 2>&1); then
+  die "landing overwrote an untracked integration file"
 fi
-printf '%s\n' "$out" | grep -q 'landing history commit .* is missing Intent-Boundary' ||
-  die "landing did not report the missing first-parent boundary disposition"
-[ "$(git -C "$fixture" rev-parse HEAD)" = "$old" ] || die "history validation failure moved target"
-ok "landing rejects first-parent integration commits without a boundary disposition"
+printf '%s\n' "$out" | grep -q '^Invariant: untracked integration files collide with the candidate:' ||
+  die "untracked collision lacks a precise diagnostic"
+[ "$(git -C "$fixture" rev-parse HEAD)" = "$old" ] || die "untracked collision moved the target"
+ok "colliding untracked integration files stop before ref update"
+
+printf 'direct local edit\n' >"$fixture/ui/direct.txt"
+printf 'unstaged companion\n' >>"$fixture/ui/view.txt"
+git -C "$fixture" add ui/direct.txt
+old=$(git -C "$fixture" rev-parse HEAD)
+if (cd "$fixture" && sh "$direct_edit" "direct local edit" --unit direct-local >/dev/null 2>&1); then
+  die "direct edit inferred no-record without explicit acknowledgement"
+fi
+[ "$(git -C "$fixture" rev-parse HEAD)" = "$old" ] || die "unacknowledged direct edit moved integration"
+out=$(cd "$fixture" && sh "$direct_edit" "direct local edit" --unit direct-local --no-record \
+  --check command:checks/verify.sh)
+printf '%s\n' "$out" | grep -q '^REACH: local$' || die "direct edit did not independently confirm local reach"
+printf '%s\n' "$out" | grep -q '^LANDED:' || die "explicit local direct edit did not land"
+git -C "$fixture" log -1 --format='%(trailers:key=Intent-Boundary,valueonly)' | grep -qxF no-record ||
+  die "direct edit did not preserve its explicit disposition"
+git -C "$fixture" log -1 --format='%(trailers:key=Intent-Scope,valueonly)' | grep -qxF area.ui ||
+  die "direct edit did not derive its path scope"
+git -C "$fixture" diff --quiet -- ui/view.txt && die "direct edit discarded an unstaged companion change"
+ok "direct-edit helper requires explicit no-record and preserves unstaged work"
+
+printf 'direct semantic edit\n' >"$fixture/src/a.txt"
+git -C "$fixture" add src/a.txt
+old=$(git -C "$fixture" rev-parse HEAD)
+if out=$(cd "$fixture" && sh "$direct_edit" "direct semantic edit" --unit direct-semantic --no-record 2>&1); then
+  die "direct edit accepted bounded semantic reach"
+fi
+printf '%s\n' "$out" | grep -q '^Invariant: direct edit has bounded reach; use normal work-branch landing$' ||
+  die "bounded direct edit lacks a recovery instruction"
+[ "$(git -C "$fixture" rev-parse HEAD)" = "$old" ] || die "bounded direct edit moved integration"
+git -C "$fixture" diff --cached --quiet -- src/a.txt && die "rejected direct edit lost staged work"
+git -C "$fixture" restore --staged --worktree src/a.txt
+ok "direct-edit helper defers governed work to normal landing"
 
 unborn="$fixture/unborn"
 mkdir -p "$unborn"
@@ -276,4 +342,4 @@ out=$(cd "$unborn" && sh "$land" direct "initial commit" --unit initial --scope 
 printf '%s\n' "$out" | grep -q '^LANDED:' || die "unborn direct landing failed"
 ok "direct landing remains available only for an unborn integration branch"
 
-echo "10 landing policy checks passed"
+echo "14 landing policy checks passed"

@@ -269,10 +269,13 @@ observations, worker availability, Git ancestry, and runtime never enter it.
 
 After compiling a brief, the agent may write a disposable per-task receipt to Git's shared
 administrative directory. Reuse requires the same repository identity, goal digest, integration
-target and head, brief and landing package hashes, selected governance digest, and no expansion
-of paths, interfaces, or domains. Context compaction still requires reloading the relevant
-instructions because the receipt proves freshness, not model retention. Landing ignores the cache
-and independently recomputes reach from the exact candidate tree.
+target, brief and landing package hashes, selected governance digest, and no expansion of paths,
+interfaces, or domains. An advanced integration head is adopted into the receipt when the cached
+head remains its ancestor, selected governance and defining material are unchanged, and the task tip
+still merges cleanly. A governing change is semantically stale; a content conflict is reported as a
+merge problem, not disguised as semantic invalidation. Context compaction still requires reloading
+the relevant instructions because the receipt proves freshness, not model retention. Landing ignores
+the cache and independently recomputes reach from the exact candidate tree.
 
 ## 11. Work branches, parallel planning, and leases
 
@@ -283,10 +286,11 @@ fixes, refactors, and features all follow the same rule. A linked worktree is re
 the integration worktree clean but is not required for an uncoordinated unit. A lease remains specific
 to coordinated work.
 
-An uncoordinated work branch may be reused only for the same active goal when its prior landing is
-still the integration head and the branch worktree is clean. Fast-forward the branch to that landing
-before the next edit. If another integration commit intervened, or the goal changed, start a fresh
-branch from the current integration head. This is causal continuity, not UI-session identity.
+An uncoordinated work branch may be reused only for the same active goal while its worktree is clean,
+its causal base remains an ancestor of the integration head, and it still merges cleanly. Another
+integration commit does not alone require a replacement branch or semantic restart. A changed goal,
+expanded semantic scope, changed governing meaning, or real content conflict does require attention.
+This is causal continuity, not UI-session identity.
 
 One prompt may contain several outcomes. The model decomposes them into units; tooling validates:
 
@@ -309,8 +313,10 @@ quiescent state.
 
 ## 12. Prospective landing
 
-Landing captures the integration head, constructs a direct or merge candidate without moving the
-target, and checks it out detached. Against that exact tree it:
+Landing may start from any worktree. It captures the integration head, constructs a direct or merge
+candidate without moving the target, and checks it out detached. A target checked out elsewhere must
+have no tracked changes; non-colliding untracked files are preserved and the checked-out target is
+synchronized only after the ref compare-and-swap succeeds. Against that exact tree landing:
 
 1. recomputes semantic reach from actual paths and selected domains;
 2. reports newly introduced mechanical topology as a review signal, never as inferred governance;
@@ -331,8 +337,19 @@ is not a boundary disposition: the caller must state that the durable-meaning te
 identify the concluding audit, or name the accepted governance that owns the meaning. Landing
 preserves that result in `Intent-Boundary` and `Intent-Governance` commit trailers.
 The oldest first-parent commit carrying `Intent-Boundary` is the integration history's adoption
-anchor. Every first-parent commit from that anchor onward must carry exactly one valid boundary
-disposition; earlier repository history remains outside this invariant.
+anchor. Ordinary first-parent commits after an attested landing may form a temporarily unattested
+suffix. The next landing closes it with
+`Intent-Covers: <last-attested>..<previous-integration-head>` and applies its explicit boundary
+disposition to that range. Reach and verifier discovery use the union of every path touched by those
+first-parent commits plus the candidate, not merely the net tree diff, so a reverted architectural
+touch cannot disappear. A strict landing-history check rejects an uncovered tip or a malformed or
+non-contiguous range. This is append-only accountability: earlier commits are never rewritten merely
+to add trailers, and history before the adoption anchor remains outside the invariant.
+
+For a small edit already staged on the integration branch, the optional direct-edit helper builds
+and checks an exact staged-tree candidate. It requires the caller to state `--no-record`; local reach
+is a mechanical eligibility check and never the source of that semantic decision. Only `local`
+changes can use the helper. Bounded, open, or gated work uses the normal isolated work branch.
 
 Any failure before the ref update leaves the target unchanged. If another landing wins the race,
 compare-and-swap fails rather than overwriting it.

@@ -6,10 +6,11 @@ Append this block to the repository's always-loaded agent instructions.
 ## Intent workflow
 
 Begin with read-only `intent-brief`, then create `intent/work/<uuid>` before the first repository
-mutation and finish through `intent-land merge`. Use a linked worktree when useful; leases remain
-specific to coordinated work. `intent-land direct` is only for the first commit on an unborn
-integration branch. A clean branch may be reused for the same goal only when its prior landing is
-still the integration head; fast-forward it to that head first. Otherwise create a fresh branch.
+mutation and finish through `intent-land merge`. Landing may run from any worktree and merges onto
+the latest compatible integration head. Use a linked worktree when useful; leases remain specific
+to coordinated work. `intent-land direct` is only for the first commit on an unborn integration
+branch. A clean branch may be reused for the same active goal while it remains causally compatible;
+an unrelated integration advance does not by itself require a new brief or branch.
 
 Missing governance is an observed posture, not a blocker or initialization trigger. Infer semantic
 domains from the goal, behavior, and architecture; never equate directories with domains.
@@ -31,6 +32,11 @@ responsibilities, relied-on interfaces or formats, authoritative-state ownership
 transaction, failure, recovery, migration, compatibility, rollout, and architectural restrictions.
 Change size and directory shape do not answer the question. Preserve the answer at landing as
 `no-record`, a fresh conclusive scoped audit, or accepted governance references.
+
+For an ordinary staged edit already made on the integration branch, `intent-land`'s direct-edit
+helper may be used only after an explicit `no-record` decision and only when exact-tree reach is
+local. Never infer that decision from path classification. The next normal landing append-only
+attests any other uncovered integration commits; do not rewrite published history to add trailers.
 
 Use `intent-audit scope` when that durable meaning is uncertain or discovery is explicitly requested;
 clear authority may flow directly to `intent-record`. A full audit requires an explicit

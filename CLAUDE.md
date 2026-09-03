@@ -16,11 +16,17 @@ landing. Read [SPEC.md](SPEC.md) for the design of record.
 - Audits and observations are tracked evidence, not authority, and never enter governing digests.
 - Runtime contains only ignored plans and leases shared through the primary worktree.
 - Reusable brief receipts are disposable Git-local caches; hashes guard reuse and landing never
-  trusts them.
+  trusts them. An advanced integration head alone does not invalidate a receipt.
 - Plans validate DAG, reliance order, checks, and unordered claim disjointness mechanically.
 - Leases use Git ancestry and intersection for freshness; time only schedules liveness checks.
 - Landing validates the exact prospective tree and compare-and-swaps the target ref.
+- Ordinary unattested integration commits are covered append-only by the next landing; history is
+  never rewritten merely to add trailers.
+- Merge landing may run from any worktree. A checked-out target must have no tracked edits, and
+  untracked files must not collide with the candidate.
 - Landing requires an explicit durable-boundary disposition; new topology is only a review signal.
+- Direct integration edits require explicit `no-record` and are allowed only when exact-tree reach
+  is mechanically local.
 - Failed landing never moves the target.
 - Push and other external effects require explicit request authority.
 

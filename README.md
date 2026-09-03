@@ -1,9 +1,13 @@
-# Invariant — Durable intent and causal coordination for agentic work
+# Invariant — preserve accepted meaning across agentic change
 
-Invariant uses Git's own mechanics to keep accepted architectural meaning durable, active coordination disposable, and both progressively informed by the repository itself.
+Invariant keeps architectural meaning durable while agents and people change a repository together.
 
-- **Governance:** Stable responsibilities, relied-on promises, and architectural limits are discovered progressively, accepted explicitly, tracked with the repository, and verified mechanically where possible.
-- **Coordination:** Plans, claims, and leases coordinate active branch work locally, then may disappear after the work safely converges.
+- **Governed autonomy:** Accepted responsibilities, contracts, and architectural limits travel with
+  the repository and are verified where possible.
+- **Progressive discovery:** Ordinary work stays ordinary; audits and governance appear only when
+  durable meaning needs to be discovered or preserved.
+- **Causal coordination:** Git ancestry orders work, disposable leases coordinate it, and exact-tree
+  landing converges it atomically.
 
 ![A read-only brief leads to an isolated work branch, an exact candidate tree, and verification against that tree before a compare-and-swap advances the integration ref. Tracked governance sits inside Git and feeds both the brief and verification; the ignored planning runtime sits outside it.](.github/assets/lifecycle.svg)
 
@@ -23,7 +27,7 @@ npx skills add RenderBear/git-intent --all
 Copy the fenced block from [AGENTS.example.md](AGENTS.example.md) into the repository's
 always-loaded agent instructions.
 
-## Optional full audit
+## Full audit in a mature repo (optional)
 
 Ordinary work does not require repository-wide setup. When inheriting an existing repository or
 wanting a deliberate architecture review, run:
@@ -96,7 +100,20 @@ changing repository meaning, although doing so discards active coordination stat
 
 Repeated turns may reuse a hash-validated brief receipt stored under Git's shared administrative
 directory at `<git-common-dir>/invariant/briefs/`. The receipt contains no authority and never
-replaces reach recomputation or exact-tree verification at landing.
+replaces reach recomputation or exact-tree verification at landing. An unrelated, mergeable advance
+of the integration branch refreshes the receipt in place; changed governing material, expanded
+semantic scope, or a real merge conflict requires attention.
+
+An ordinary staged edit on the integration branch may use the optional low-ceremony helper:
+
+```bash
+skills/intent-land/scripts/direct-edit.sh "Ignore local downloads" \
+  --unit ignore-downloads --no-record --check test:tests/test-ignore.sh
+```
+
+The helper does not infer `no-record`. That flag is the caller's explicit durable-meaning decision,
+and the helper proceeds only when independent exact-tree reach is `local`. Bounded, open, or gated
+work follows the normal isolated branch and landing path.
 
 When accepted material is Markdown, prefer a focused design document. Anchored locators such as
 `architecture:docs/jobs.md#event-stream` route actual changed hunks to that section; path-only checks

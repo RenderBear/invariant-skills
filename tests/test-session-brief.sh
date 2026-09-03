@@ -6,7 +6,8 @@ root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 fixture=$(mktemp -d "${TMPDIR:-/tmp}/invariant-session-brief-test.XXXXXX")
 framework=$(mktemp -d "${TMPDIR:-/tmp}/invariant-session-framework-test.XXXXXX")
 linked="$fixture-linked"
-cleanup() { rm -rf "$fixture" "$framework" "$linked"; }
+unborn="$fixture-unborn"
+cleanup() { rm -rf "$fixture" "$framework" "$linked" "$unborn"; }
 trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$framework/skills"
@@ -17,7 +18,8 @@ git -C "$fixture" init -qb main
 git -C "$fixture" config user.name test
 git -C "$fixture" config user.email test@example.com
 git -C "$fixture" config commit.gpgsign false
-mkdir -p "$fixture/.intent/observations" "$fixture/src"
+mkdir -p "$fixture/.intent/observations" "$fixture/docs" "$fixture/src"
+printf '# Architecture\n' >"$fixture/docs/architecture.md"
 printf 'seed\n' >"$fixture/src/a file.py"
 cat >"$fixture/.intent/config.yml" <<'EOF'
 version: 1
@@ -108,17 +110,53 @@ out=$(cd "$linked" && sh "$session_brief" check task-1 --goal "Change source saf
 printf '%s\n' "$out" | grep -q '^BRIEF: fresh task-1$' || die "linked worktree could not reuse shared brief"
 ok "linked worktrees share the Git-local receipt"
 
-printf 'next\n' >>"$fixture/src/a file.py"
-git -C "$fixture" commit -qam next
-if out=$(cd "$fixture" && sh "$session_brief" check task-1 --goal "Change source safely" 2>&1); then
-  die "advanced integration head reused a stale brief"
+printf 'unrelated\n' >"$fixture/unrelated.txt"
+git -C "$fixture" add unrelated.txt
+git -C "$fixture" commit -qm "unrelated main work"
+out=$(cd "$linked" && sh "$session_brief" check task-1 --goal "Change source safely")
+printf '%s\n' "$out" | grep -q '^HEAD: advanced .* — mergeable, brief reused$' || die "unrelated head movement did not reuse the brief"
+printf '%s\n' "$out" | grep -q '^BRIEF: fresh task-1$' || die "advanced mergeable head was not fresh"
+ok "unrelated integration work advances the cached head without re-briefing"
+
+printf '\nAccepted ownership is clarified.\n' >>"$fixture/docs/architecture.md"
+git -C "$fixture" commit -qam "change governing material"
+if out=$(cd "$linked" && sh "$session_brief" check task-1 --goal "Change source safely" 2>&1); then
+  die "changed governing material reused the prior brief"
 fi
-printf '%s\n' "$out" | grep -q '^STALE: integration head changed$' || die "head staleness lacks a precise reason"
-ok "integration-head movement invalidates reuse"
+printf '%s\n' "$out" | grep -q '^STALE: governing material changed — architecture:docs/architecture.md$' ||
+  die "governing-material staleness lacks a precise reason"
+ok "governing material changes refresh semantic context"
+
+git -C "$linked" merge -q --ff-only main
+(cd "$linked" && sh "$session_brief" open task-1 --goal "Change source safely" \
+  --posture bounded --boundary no-record --path "src/a file.py" --interface SourceApi --domain source >/dev/null)
+printf 'task\n' >"$linked/src/a file.py"
+git -C "$linked" commit -qam "task source change"
+printf 'main\n' >"$fixture/src/a file.py"
+git -C "$fixture" commit -qam "conflicting main change"
+if out=$(cd "$linked" && sh "$session_brief" check task-1 --goal "Change source safely" 2>&1); then
+  die "real content conflict was reported as mergeable"
+fi
+printf '%s\n' "$out" | grep -q '^MERGE-REQUIRED: task conflicts with advanced integration head ' ||
+  die "content conflict was misclassified as semantic staleness"
+ok "real content conflicts require merging without discarding semantic context"
 
 out=$(cd "$fixture" && sh "$session_brief" invalidate task-1)
 printf '%s\n' "$out" | grep -q '^BRIEF: invalidated task-1$' || die "brief was not invalidated"
 [ ! -e "$manifest" ] || die "invalidated brief remains on disk"
 ok "invalidation removes only the selected receipt"
 
-echo "10 session-brief checks passed"
+mkdir -p "$unborn/.intent"
+git -C "$unborn" init -qb main
+cat >"$unborn/.intent/config.yml" <<'EOF'
+version: 1
+integration_branch: main
+EOF
+out=$(cd "$unborn" && sh "$session_brief" open unborn-task --goal "Create the repository" \
+  --posture local --boundary no-record --path README.md)
+printf '%s\n' "$out" | grep -q '^BRIEF: opened unborn-task$' || die "unborn repository could not open a brief"
+out=$(cd "$unborn" && sh "$session_brief" check unborn-task --goal "Create the repository")
+printf '%s\n' "$out" | grep -q '^BRIEF: fresh unborn-task$' || die "unborn repository could not reuse its brief"
+ok "brief receipts support an unborn integration branch"
+
+echo "13 session-brief checks passed"
