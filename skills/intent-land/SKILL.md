@@ -12,6 +12,7 @@ the first commit on an unborn integration branch. Keep the integration worktree 
 worker worktree is recommended but only coordinated work requires a plan and leases.
 
 Recompute reach against the exact candidate. Run all emitted contract and constraint verifiers.
+Never substitute a cached task brief for this recomputation.
 Semantically review every affected constraint against the candidate and pass its
 `--reviewed constraint:<id>` acknowledgement. Under `resolution: assisted`, ask only when the
 candidate conflicts with or changes accepted meaning; under `auto`, resolve within request
@@ -33,7 +34,7 @@ governance leaves the ref unchanged.
 After landing, give a short decision-oriented report: durable meaning changed, governance merely
 reviewed, unique checks run, landing or divergence result, and anything intentionally unresolved.
 Omit empty categories, use human language before identifiers, and do not replay the complete reach
-output.
+output. Invalidate the task brief receipt after a successful landing when one was used.
 
 `TOPOLOGY-NEW` output means the candidate introduced a mechanical area or package scope absent from
 the integration tree. Treat it as a prompt to recheck durable meaning, never as evidence that the

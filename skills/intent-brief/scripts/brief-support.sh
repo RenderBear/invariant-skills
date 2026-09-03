@@ -202,14 +202,107 @@ expand_domains() {
   rm -f "$rows"
 }
 
+markdown_section_bounds() {
+  content=$1; anchor=$2; out=$3
+  awk -v wanted="$anchor" '
+    function slug(value) {
+      value=tolower(value)
+      gsub(/[`*_~]/, "", value)
+      gsub(/[^a-z0-9 _-]/, "", value)
+      gsub(/[[:space:]]+/, "-", value)
+      gsub(/^-+|-+$/, "", value)
+      return value
+    }
+    /^#{1,6}[[:space:]]+/ {
+      heading=$0
+      match(heading, /^#+/)
+      level=RLENGTH
+      sub(/^#{1,6}[[:space:]]+/, "", heading)
+      sub(/[[:space:]]+#+[[:space:]]*$/, "", heading)
+      if (active && level <= active_level) {
+        print active_start, NR - 1
+        done=1
+        exit
+      }
+      if (!active && slug(heading) == wanted) {
+        active=1
+        active_level=level
+        active_start=NR
+      }
+    }
+    END {if (active && !done) print active_start, NR}
+  ' "$content" >"$out"
+}
+
+# Return 0 when a real Markdown diff touches the referenced section, 1 when a
+# real diff is known not to touch it, and 2 when there is not enough evidence
+# to narrow the locator safely. Unknown evidence deliberately falls back to
+# file-wide matching in path_hits.
+markdown_section_hit() {
+  path=$1; anchor=$2; base=$3; scratch=$4
+  case "$path" in *.md|*.markdown|*.MD|*.MARKDOWN) ;; *) return 2 ;; esac
+  : >"$scratch/diff"
+  if [ -n "$base" ] && [ "$base" != --root ]; then
+    git diff --unified=0 "$base" -- "$path" >"$scratch/diff" 2>/dev/null || return 2
+    git show "$base:$path" >"$scratch/old" 2>/dev/null || : >"$scratch/old"
+    if [ -f "$path" ]; then cp "$path" "$scratch/new"; else : >"$scratch/new"; fi
+  else
+    git rev-parse -q --verify HEAD >/dev/null 2>&1 || return 2
+    git diff --unified=0 HEAD -- "$path" >"$scratch/diff" 2>/dev/null || return 2
+    git show "HEAD:$path" >"$scratch/old" 2>/dev/null || : >"$scratch/old"
+    if [ -f "$path" ]; then cp "$path" "$scratch/new"; else : >"$scratch/new"; fi
+  fi
+  grep -q '^@@ ' "$scratch/diff" || return 2
+
+  awk '/^@@ / {
+    line=$0
+    sub(/^@@ -/, "", line)
+    split(line, fields, " ")
+    old=fields[1]
+    new=fields[2]
+    sub(/^\+/, "", new)
+    old_count=1
+    new_count=1
+    if (index(old, ",")) {split(old, values, ","); old=values[1]; old_count=values[2]}
+    if (index(new, ",")) {split(new, values, ","); new=values[1]; new_count=values[2]}
+    print old, old_count, new, new_count
+  }' "$scratch/diff" >"$scratch/hunks"
+
+  markdown_section_bounds "$scratch/old" "$anchor" "$scratch/old-section"
+  markdown_section_bounds "$scratch/new" "$anchor" "$scratch/new-section"
+  [ -s "$scratch/old-section" ] || [ -s "$scratch/new-section" ] || return 2
+
+  old_start=0; old_end=-1; new_start=0; new_end=-1
+  [ ! -s "$scratch/old-section" ] || read -r old_start old_end <"$scratch/old-section"
+  [ ! -s "$scratch/new-section" ] || read -r new_start new_end <"$scratch/new-section"
+  awk -v os="$old_start" -v oe="$old_end" -v ns="$new_start" -v ne="$new_end" '
+    function overlaps(start, count, section_start, section_end) {
+      return count > 0 && section_end >= section_start && start <= section_end && start + count - 1 >= section_start
+    }
+    overlaps($1, $2, os, oe) || overlaps($3, $4, ns, ne) {hit=1}
+    END {exit hit ? 0 : 1}
+  ' "$scratch/hunks"
+}
+
 path_hits() {
-  wanted=$1; locators=$2
+  wanted=$1; locators=$2; base=${3:-}; scratch=${4:-}
   for locator in $(normalise_refs "$locators"); do
     case "$locator" in task:*|url:*|interface:*) continue ;; esac
-    path=${locator#*:}; path=${path%%#*}; path=${path%%::*}
+    path=${locator#*:}
+    anchor=""
+    case "$path" in *#*) anchor=${path#*#}; path=${path%%#*} ;; esac
+    path=${path%%::*}
     while IFS= read -r changed; do
       [ -n "$changed" ] || continue
-      [ "$changed" = "$path" ] && return 0
+      if [ "$changed" = "$path" ]; then
+        if [ -n "$anchor" ] && [ -n "$scratch" ]; then
+          markdown_section_hit "$path" "$anchor" "$base" "$scratch"
+          section_result=$?
+          [ "$section_result" -eq 1 ] || return 0
+        else
+          return 0
+        fi
+      fi
       case "$changed" in "$path"/*) return 0 ;; esac
       case "$path" in "$changed"/*) return 0 ;; esac
     done <"$wanted"
@@ -250,18 +343,18 @@ governance_change_class() {
 }
 
 compile_affected() {
-  paths=$1; selected=$2; interfaces=$3; out=$4
+  paths=$1; selected=$2; interfaces=$3; out=$4; base=$5; scratch=$6
   : >"$out"
   contract_rows | while IFS='|' read -r id refs surfaces material verifies assertion authority; do
     level=""
-    if domain_hits "$selected" "$refs" || path_hits "$paths" "$surfaces" || interface_hits "$interfaces" "$surfaces"; then level=bounded; fi
-    if path_hits "$paths" "$material" || path_hits "$paths" "$verifies"; then level=open; fi
+    if domain_hits "$selected" "$refs" || path_hits "$paths" "$surfaces" "$base" "$scratch" || interface_hits "$interfaces" "$surfaces"; then level=bounded; fi
+    if path_hits "$paths" "$material" "$base" "$scratch" || path_hits "$paths" "$verifies" "$base" "$scratch"; then level=open; fi
     [ -z "$level" ] || printf 'contract|%s|%s|%s|%s\n' "$id" "$level" "$verifies" "$assertion"
   done >>"$out"
   constraint_rows | while IFS='|' read -r id refs surfaces material verifies assertion authority; do
     level=""
-    if domain_hits "$selected" "$refs" || path_hits "$paths" "$surfaces" || interface_hits "$interfaces" "$surfaces"; then level=bounded; fi
-    if path_hits "$paths" "$material" || path_hits "$paths" "$verifies"; then level=open; fi
+    if domain_hits "$selected" "$refs" || path_hits "$paths" "$surfaces" "$base" "$scratch" || interface_hits "$interfaces" "$surfaces"; then level=bounded; fi
+    if path_hits "$paths" "$material" "$base" "$scratch" || path_hits "$paths" "$verifies" "$base" "$scratch"; then level=open; fi
     [ -z "$level" ] || printf 'constraint|%s|%s|%s|%s\n' "$id" "$level" "$verifies" "$assertion"
   done >>"$out"
 }
@@ -270,11 +363,12 @@ with_inputs() {
   mode=$1; shift
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/invariant-brief.XXXXXX") || exit 2
   trap 'rm -rf "$tmp"' EXIT HUP INT TERM
-  paths="$tmp/paths"; selected="$tmp/selected"; interfaces="$tmp/interfaces"; base_file="$tmp/base"; expanded="$tmp/expanded"; affected="$tmp/affected"
+  paths="$tmp/paths"; selected="$tmp/selected"; interfaces="$tmp/interfaces"; base_file="$tmp/base"; expanded="$tmp/expanded"; affected="$tmp/affected"; section_scratch="$tmp/section"
+  mkdir -p "$section_scratch"
   collect_inputs "$paths" "$selected" "$interfaces" "$base_file" "$@"
   expand_domains "$selected" "$expanded" || exit 2
-  compile_affected "$paths" "$expanded" "$interfaces" "$affected"
   base=$(sed -n '1p' "$base_file")
+  compile_affected "$paths" "$expanded" "$interfaces" "$affected" "$base" "$section_scratch"
   [ "$base" != --root ] || base=""
 
   if [ "$mode" = verifiers ]; then

@@ -19,8 +19,15 @@ code, and referenced material; never infer domain membership mechanically from a
    observations are evidence and never enter this digest.
 5. Apply the durable-meaning test below. Adopt only meaning future work must preserve; use a scoped
    audit when the answer is uncertain.
-6. Before the first repository mutation, create `intent/work/<uuid>` from the captured integration
+6. Open a task receipt with `scripts/session-brief.sh open`. On later turns, `check` permits reuse of
+   retained instructions and rows only while its hashes, integration head, goal, and scope remain
+   fresh. Reload instructions after context compaction even when the receipt is fresh.
+7. Before the first repository mutation, create `intent/work/<uuid>` from the captured integration
    head. Use `intent-coordinate` only when useful independent work requires it.
+
+Open the receipt with the current goal, posture, boundary disposition, and repeated `--path`,
+`--interface`, and `--domain` arguments. Pass the current goal and full known scope to `check`; if it
+reports stale, recompile and reopen rather than extending the cached result.
 
 Before mutation, give the user a compact intent receipt: the goal in plain language, whether durable
 meaning appears unchanged, changed, or uncertain, the relevant accepted intent, and any decision
@@ -61,8 +68,9 @@ and fast-forward it to that head before editing; otherwise create a fresh UUID b
 ## Lifetime and landing
 
 A brief remains usable until its domain-governance digest changes or its semantic scope expands.
-Use `observe <digest> <domain...>` for freshness. Git supplies causal order; no timestamp decides
-freshness.
+Use `session-brief.sh check` for task reuse and `observe <digest> <domain...>` for a bare governance
+check. The receipt is a disposable cache under Git's shared administrative directory; it is never
+authority and landing never consumes it. Git supplies causal order; no timestamp decides freshness.
 
 Before landing, recompute reach from the exact diff, review every emitted constraint against the
 prospective tree, collect affected verifiers, and pass scopes, domains, checks, and reviewed
