@@ -20,8 +20,9 @@ code, and referenced material; never infer domain membership mechanically from a
 5. Apply the durable-meaning test below. Adopt only meaning future work must preserve; use a scoped
    audit when the answer is uncertain.
 6. Open a task receipt with `scripts/session-brief.sh open`. On later turns, `check` permits reuse of
-   retained instructions and rows only while its hashes, integration head, goal, and scope remain
-   fresh. Reload instructions after context compaction even when the receipt is fresh.
+   retained instructions and rows while hashes, goal, semantic scope, and governing meaning remain
+   fresh. An unrelated, mergeable integration-head advance is adopted into the receipt. Reload
+   instructions after context compaction even when the receipt is fresh.
 7. Before the first repository mutation, create `intent/work/<uuid>` from the captured integration
    head. Use `intent-coordinate` only when useful independent work requires it.
 
@@ -62,12 +63,14 @@ adoption, not a reason to omit the contract.
 
 Branch creation is independent of this result. Every mutation uses a generated work branch and
 normal landing uses merge. Direct landing is reserved for an unborn integration branch. Reuse a
-clean branch only for the same active goal, when its previous landing is still the integration head,
-and fast-forward it to that head before editing; otherwise create a fresh UUID branch.
+clean branch only for the same active goal while its causal base remains an ancestor of the current
+integration head and it still merges cleanly. An unrelated integration advance does not require a
+semantic restart; a governing-material change, expanded semantic scope, or real conflict does.
 
 ## Lifetime and landing
 
-A brief remains usable until its domain-governance digest changes or its semantic scope expands.
+A brief remains usable until its domain-governance digest or selected defining material changes, its
+semantic scope expands, or its task branch conflicts with the integration head.
 Use `session-brief.sh check` for task reuse and `observe <digest> <domain...>` for a bare governance
 check. The receipt is a disposable cache under Git's shared administrative directory; it is never
 authority and landing never consumes it. Git supplies causal order; no timestamp decides freshness.

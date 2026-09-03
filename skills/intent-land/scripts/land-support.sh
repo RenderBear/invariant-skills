@@ -11,12 +11,17 @@ usage:
                   --paths <path>... [--domain <id>]... [--interface <name>]...
                   [--governance <ref>]... [--reviewed constraint:<id>]...
                   --boundary-review <no-record|audit:id|recorded>
-                  [--check <locator>]... [--allow-open] [--plan <id>]
+                  [--target <branch>] [--check <locator>]...
+                  [--allow-open] [--plan <id>]
+  land-support.sh staged <subject> --unit <id> --scope <scope>...
+                  --boundary-review no-record [--target <branch>]
+                  [--check <locator>]...
   land-support.sh merge <branch> <subject> --unit <id>... --scope <scope>...
                   [--domain <id>]... [--interface <name>]...
                   [--governance <ref>]... [--reviewed constraint:<id>]...
                   --boundary-review <no-record|audit:id|recorded>
-                  [--check <locator>]... [--allow-open] [--plan <id>]
+                  [--target <branch>] [--check <locator>]...
+                  [--allow-open] [--plan <id>]
 
 Check locators are executable `command:path` wrappers or supported `test:`
 locators. `--allow-open` states that intent-land has already resolved the
@@ -35,6 +40,7 @@ shift
 merge_branch=""
 case "$mode" in
   direct) subject=$1; shift ;;
+  staged) subject=$1; shift ;;
   merge) [ "$#" -ge 2 ] || usage; merge_branch=$1; subject=$2; shift 2 ;;
   *) usage ;;
 esac
@@ -58,6 +64,7 @@ interfaces=""
 governance=""
 reviewed=""
 boundary_review=""
+target_override=""
 plan=""
 allow_open=0
 while [ "$#" -gt 0 ]; do
@@ -74,6 +81,7 @@ while [ "$#" -gt 0 ]; do
       boundary_review=$2
       shift 2
       ;;
+    --target) [ "$#" -ge 2 ] || usage; target_override=$2; shift 2 ;;
     --plan) [ "$#" -ge 2 ] || usage; plan=$2; shift 2 ;;
     --check) [ "$#" -ge 2 ] || usage; checks="$checks
 $2"; shift 2 ;;
@@ -106,14 +114,22 @@ esac
   echo "Invariant: --boundary-review recorded requires at least one --governance reference" >&2
   exit 2
 }
+if [ "$mode" = staged ]; then
+  [ "$boundary_review" = no-record ] && [ -z "$domains$interfaces$governance$reviewed$plan" ] && [ "$allow_open" -eq 0 ] || {
+    echo "Invariant: staged landing is only for an explicit local no-record edit; use normal work-branch landing" >&2
+    exit 2
+  }
+fi
 
-target=$(sh "$brief_dir/resolve-config.sh" | sed -n 's/^integration_branch_resolved:[[:space:]]*//p')
+if [ -n "$target_override" ]; then target=$target_override
+else target=$(sh "$brief_dir/resolve-config.sh" | sed -n 's/^integration_branch_resolved:[[:space:]]*//p')
+fi
 [ -n "$target" ] || { echo "Invariant: no integration branch resolved" >&2; exit 2; }
-current=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
-[ "$current" = "$target" ] || {
-  echo "Invariant: atomic landing must run in the integration worktree ('$target', currently '${current:-detached}')" >&2
+git check-ref-format --branch "$target" >/dev/null 2>&1 || {
+  echo "Invariant: invalid integration branch '$target'" >&2
   exit 2
 }
+current=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
 unborn=0
 old=$(git rev-parse -q --verify "refs/heads/$target^{commit}" 2>/dev/null || true)
 if [ -z "$old" ]; then
@@ -128,18 +144,69 @@ fi
   echo "Invariant: an unborn integration branch requires a direct first landing" >&2
   exit 2
 }
+[ "$mode" != staged ] || [ "$unborn" -eq 0 ] || {
+  echo "Invariant: staged landing requires an existing integration commit" >&2
+  exit 2
+}
 [ "$mode" != direct ] || [ "$unborn" -eq 1 ] || {
   echo "Invariant: direct landing is reserved for the first commit on an unborn integration branch; use a work branch and merge" >&2
   exit 2
 }
 
-git diff --cached --quiet -- || {
-  echo "Invariant: staged changes exist; preserve or unstage them before atomic landing" >&2
-  exit 2
+worktree_for_branch() {
+  branch=$1
+  git worktree list --porcelain 2>/dev/null | awk -v wanted="refs/heads/$branch" '
+    /^worktree / {path=substr($0, 10); next}
+    /^branch / && substr($0, 8)==wanted {print path; exit}
+  '
 }
-if [ "$mode" = merge ] && [ -n "$(git status --porcelain)" ]; then
-  echo "Invariant: merge landing requires a clean integration worktree" >&2
+
+tracked_worktree_clean() {
+  worktree=$1
+  git -C "$worktree" diff --quiet -- && git -C "$worktree" diff --cached --quiet --
+}
+
+target_worktree=$(worktree_for_branch "$target")
+if [ "$mode" = direct ]; then
+  [ "$current" = "$target" ] || {
+    echo "Invariant: unborn direct landing must run in the integration worktree ('$target')" >&2
+    exit 2
+  }
+  [ -n "$target_worktree" ] || target_worktree=$root
+  git diff --cached --quiet -- || {
+    echo "Invariant: staged changes exist; preserve or unstage them before direct landing" >&2
+    exit 2
+  }
+elif [ "$mode" = staged ]; then
+  [ "$current" = "$target" ] || {
+    echo "Invariant: staged landing must run in the checked-out integration branch ('$target')" >&2
+    exit 2
+  }
+  [ -n "$target_worktree" ] || target_worktree=$root
+  [ -z "$(git ls-files -u)" ] || {
+    echo "Invariant: staged landing cannot include unresolved index entries" >&2
+    exit 2
+  }
+  git diff --cached --quiet -- && {
+    echo "Invariant: staged landing requires staged changes" >&2
+    exit 2
+  }
+elif [ -n "$target_worktree" ] && ! tracked_worktree_clean "$target_worktree"; then
+  echo "Invariant: integration worktree '$target_worktree' has tracked changes; landing cannot synchronize it safely" >&2
   exit 2
+fi
+
+branch_ref=""
+if [ "$mode" = merge ]; then
+  branch_ref=$(git rev-parse -q --verify "refs/heads/$merge_branch^{commit}" 2>/dev/null) || {
+    echo "Invariant: merge branch '$merge_branch' does not exist locally" >&2
+    exit 2
+  }
+  candidate_worktree=$(worktree_for_branch "$merge_branch")
+  if [ -n "$candidate_worktree" ] && ! tracked_worktree_clean "$candidate_worktree"; then
+    echo "Invariant: candidate worktree '$candidate_worktree' has uncommitted tracked changes" >&2
+    exit 2
+  fi
 fi
 
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/invariant-land.XXXXXX")
@@ -153,6 +220,18 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
+covers=""
+reach_base="$old"
+if [ "$unborn" -eq 0 ]; then
+  last_attested=$(git log --first-parent \
+    --format='%H%x1c%(trailers:key=Intent-Boundary,valueonly,separator=%x1d)' "$old" 2>/dev/null |
+    awk 'BEGIN {FS=sprintf("%c",28)} $2!="" {print $1; exit}')
+  if [ -n "$last_attested" ] && [ "$last_attested" != "$old" ]; then
+    covers="$last_attested..$old"
+    reach_base=$last_attested
+  fi
+fi
+
 message_args=""
 for unit in $units; do message_args="$message_args --unit $unit"; done
 for scope in $scopes; do message_args="$message_args --scope $scope"; done
@@ -162,6 +241,7 @@ for domain in $domains; do message_args="$message_args --domain $domain"; done
 # whitespace by schema. shellcheck disable=SC2086
 sh "$brief_dir/brief-support.sh" message "$subject" $message_args >"$tmp/message"
 printf 'Intent-Boundary: %s\n' "$boundary_review" >>"$tmp/message"
+[ -z "$covers" ] || printf 'Intent-Covers: %s\n' "$covers" >>"$tmp/message"
 for ref in $governance; do printf 'Intent-Governance: %s\n' "$ref" >>"$tmp/message"; done
 
 if [ "$mode" = direct ]; then
@@ -185,11 +265,14 @@ if [ "$mode" = direct ]; then
   else
     candidate=$(git commit-tree "$tree" -F "$tmp/message")
   fi
-else
-  branch_ref=$(git rev-parse -q --verify "refs/heads/$merge_branch^{commit}" 2>/dev/null) || {
-    echo "Invariant: merge branch '$merge_branch' does not exist locally" >&2
+elif [ "$mode" = staged ]; then
+  tree=$(git write-tree)
+  [ "$tree" != "$(git rev-parse "$old^{tree}")" ] || {
+    echo "Invariant: staged index produces no change" >&2
     exit 2
   }
+  candidate=$(git commit-tree "$tree" -p "$old" -F "$tmp/message")
+else
   merge_output=$(git merge-tree --write-tree "$old" "$branch_ref" 2>&1) || {
     printf '%s\n' "$merge_output" >&2
     echo "Invariant: prospective merge conflicts; integration branch unchanged" >&2
@@ -198,6 +281,64 @@ else
   tree=$(printf '%s\n' "$merge_output" | sed -n '1p')
   candidate=$(git commit-tree "$tree" -p "$old" -p "$branch_ref" -F "$tmp/message")
 fi
+
+target_checkout_safe() {
+  [ "$mode" != direct ] || return 0
+  if [ "$mode" = staged ]; then
+    [ "$(git rev-parse -q --verify "refs/heads/$target^{commit}" 2>/dev/null || true)" = "$old" ] || {
+      echo "Invariant: integration branch changed during staged landing" >&2
+      return 1
+    }
+    current_index=$(git write-tree 2>/dev/null) || {
+      echo "Invariant: staged index changed into an unreadable state during landing" >&2
+      return 1
+    }
+    [ "$current_index" = "$tree" ] || {
+      echo "Invariant: staged index changed during landing" >&2
+      return 1
+    }
+    return 0
+  fi
+  [ -n "$target_worktree" ] || return 0
+  tracked_worktree_clean "$target_worktree" || {
+    echo "Invariant: integration worktree '$target_worktree' changed during landing" >&2
+    return 1
+  }
+  candidate_paths="$tmp/candidate-paths"
+  untracked_paths="$tmp/target-untracked"
+  collisions="$tmp/untracked-collisions"
+  git ls-tree -r --name-only "$candidate" -- >"$candidate_paths"
+  # Include ignored files: a checkout may replace them too, and local build or
+  # downloaded artifacts are no less valuable merely because Git ignores them.
+  git -C "$target_worktree" ls-files --others -- >"$untracked_paths"
+  awk '
+    NR==FNR {
+      candidate[$0]=1
+      parent=$0
+      while(sub(/\/[^\/]*$/, "", parent)) candidate_directory[parent]=1
+      next
+    }
+    {
+      untracked=$0
+      collision=(candidate[untracked] || candidate_directory[untracked])
+      parent=untracked
+      while(!collision && sub(/\/[^\/]*$/, "", parent)) {
+        if(candidate[parent]) collision=1
+      }
+      if(collision) print untracked
+    }
+  ' "$candidate_paths" "$untracked_paths" >"$collisions" || {
+    echo "Invariant: could not verify untracked integration-file safety" >&2
+    return 1
+  }
+  if [ -s "$collisions" ]; then
+    echo "Invariant: untracked integration files collide with the candidate:" >&2
+    sed 's/^/  /' "$collisions" >&2
+    return 1
+  fi
+}
+
+target_checkout_safe || exit 2
 
 git worktree add --quiet --detach "$verify_dir" "$candidate"
 worktree_added=1
@@ -210,9 +351,10 @@ if [ "$unborn" -eq 1 ]; then
   reach=$(cd "$verify_dir" && sh "$brief_dir/brief-support.sh" reach --root $reach_args)
 else
   # shellcheck disable=SC2086
-  reach=$(cd "$verify_dir" && sh "$brief_dir/brief-support.sh" reach "$old" $reach_args)
+  reach=$(cd "$verify_dir" && sh "$brief_dir/brief-support.sh" reach --history "$reach_base" $reach_args)
 fi
 printf '%s\n' "$reach"
+[ -z "$covers" ] || printf 'COVERAGE: %s\n' "$covers"
 verdict=$(printf '%s\n' "$reach" | sed -n 's/^REACH:[[:space:]]*//p')
 case "$verdict" in
   local|bounded) ;;
@@ -230,6 +372,10 @@ case "$verdict" in
     ;;
   *) echo "Invariant: could not classify prospective reach" >&2; exit 2 ;;
 esac
+[ "$mode" != staged ] || [ "$verdict" = local ] || {
+  echo "Invariant: staged edit has $verdict reach; use normal work-branch landing" >&2
+  exit 1
+}
 
 (cd "$verify_dir" && GIT_INTENT_INTEGRATION_TARGET="$target" GIT_INTENT_ALLOW_UNBORN="$unborn" sh "$brief_dir/validate-state.sh" --landing)
 (cd "$verify_dir" && sh "$brief_dir/brief-support.sh" trailer "$candidate")
@@ -352,7 +498,7 @@ if [ "$unborn" -eq 1 ]; then
   verifier_rows=$(cd "$verify_dir" && sh "$brief_dir/brief-support.sh" verifiers --root $reach_args)
 else
   # shellcheck disable=SC2086
-  verifier_rows=$(cd "$verify_dir" && sh "$brief_dir/brief-support.sh" verifiers "$old" $reach_args)
+  verifier_rows=$(cd "$verify_dir" && sh "$brief_dir/brief-support.sh" verifiers --history "$reach_base" $reach_args)
 fi
 printf '%s\n' "$verifier_rows" | sed -n 's/^VERIFY: [^ ]* //p' | while IFS= read -r locator; do
   [ -n "$locator" ] || continue
@@ -439,16 +585,17 @@ fi
 # Compare-and-swap is the atomic boundary: if another landing advanced the
 # target during verification, this fails and the verified candidate remains
 # dangling rather than overwriting newer work.
+target_checkout_safe || exit 2
 if [ "$unborn" -eq 1 ]; then
   zero=0000000000000000000000000000000000000000
   git update-ref "refs/heads/$target" "$candidate" "$zero"
 else
   git update-ref "refs/heads/$target" "$candidate" "$old"
 fi
-if [ "$mode" = direct ]; then
-  git read-tree "$candidate"
-else
-  git read-tree --reset -u "$candidate"
+if [ -n "$target_worktree" ]; then
+  if [ "$mode" = direct ] || [ "$mode" = staged ]; then git -C "$target_worktree" read-tree "$candidate"
+  else git -C "$target_worktree" read-tree --reset -u "$candidate"
+  fi
 fi
 
 for unit in $units; do

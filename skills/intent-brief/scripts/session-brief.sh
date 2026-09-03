@@ -15,8 +15,9 @@ usage:
   session-brief.sh invalidate <task-id>
 
 The cache is a freshness receipt, not governance or landing evidence. `check`
-rejects changed repository identity, integration target or head, skill content,
-selected governance, goal, or expanded scope.
+rejects changed repository identity, skill content, selected governance or
+defining material, goal, or expanded scope. An advanced integration head is
+adopted when it remains causally related and cleanly mergeable.
 EOF
   exit 2
 }
@@ -126,6 +127,24 @@ governance_digest() {
   sh "$brief_support" digest "$@" | sed -n 's/^DIGEST:[[:space:]]*//p'
 }
 
+governance_digest_at() {
+  at=$1; domain_source=$2
+  if [ "$at" = unborn ]; then
+    git hash-object --stdin </dev/null
+    return
+  fi
+  set --
+  while IFS= read -r domain; do [ -z "$domain" ] || set -- "$@" "$domain"; done <"$domain_source"
+  sh "$brief_support" digest --at "$at" "$@" | sed -n 's/^DIGEST:[[:space:]]*//p'
+}
+
+material_changes() {
+  base=$1; tip=$2; domain_source=$3
+  set -- "$base" "$tip"
+  while IFS= read -r domain; do [ -z "$domain" ] || set -- "$@" "$domain"; done <"$domain_source"
+  sh "$brief_support" material-changes "$@"
+}
+
 parse_scope_args() {
   allow_posture=$1
   shift
@@ -163,6 +182,20 @@ stale() {
   exit 1
 }
 
+refresh_integration() {
+  head=$1; governance=$2
+  pending=$(mktemp "$cache_root/.$task.XXXXXX") || exit 2
+  quoted_head=$(yaml_quote "$head")
+  quoted_governance=$(yaml_quote "$governance")
+  awk -v head="$quoted_head" -v governance="$quoted_governance" '
+    /^integration_head: / {$0="integration_head: " head}
+    /^  integration_governance_digest: / {$0="  integration_governance_digest: " governance}
+    {print}
+  ' "$manifest" >"$pending"
+  mv "$pending" "$manifest"
+  pending=""
+}
+
 case "$cmd" in
   open)
     parse_scope_args 1 "$@"
@@ -178,6 +211,7 @@ case "$cmd" in
     brief_skill=$(skill_digest intent-brief) || exit 2
     land_skill=$(skill_digest intent-land) || exit 2
     governance=$(governance_digest) || exit 2
+    integration_governance=$(governance_digest_at "$head" "$domains") || exit 2
 
     mkdir -p "$cache_root"
     pending=$(mktemp "$cache_root/.$task.XXXXXX") || exit 2
@@ -197,6 +231,7 @@ case "$cmd" in
       write_list domains "$domains"
       echo 'intent:'
       printf '  governance_digest: %s\n' "$(yaml_quote "$governance")"
+      printf '  integration_governance_digest: %s\n' "$(yaml_quote "$integration_governance")"
       printf '  posture: %s\n' "$(yaml_quote "$posture")"
       printf '  boundary: %s\n' "$(yaml_quote "$boundary")"
     } >"$pending"
@@ -215,7 +250,6 @@ case "$cmd" in
     target=$(integration_target)
     [ "$target" = "$cached_target" ] || stale "integration target changed from $cached_target to $target"
     [ "$(repository_identity "$target")" = "$(manifest_value 'repository: ')" ] || stale "repository identity changed"
-    [ "$(integration_head "$target")" = "$(manifest_value 'integration_head: ')" ] || stale "integration head changed"
     [ "$(skill_digest intent-brief)" = "$(manifest_value '  intent-brief: ')" ] || stale "intent-brief content changed"
     [ "$(skill_digest intent-land)" = "$(manifest_value '  intent-land: ')" ] || stale "intent-land content changed"
 
@@ -235,6 +269,32 @@ case "$cmd" in
           [ -z "$item" ] || grep -qxF "$item" "$cached" || stale "$kind scope expanded to $item"
         done <"$requested"
       done
+    fi
+
+    cached_head=$(manifest_value 'integration_head: ')
+    current_head=$(integration_head "$target")
+    if [ "$current_head" != "$cached_head" ]; then
+      [ "$cached_head" != unborn ] && [ "$current_head" != unborn ] || stale "integration branch birth state changed"
+      git merge-base --is-ancestor "$cached_head" "$current_head" >/dev/null 2>&1 || stale "integration history no longer descends from the cached head"
+
+      integration_governance=$(governance_digest_at "$current_head" "$scratch/cached-domains") || exit 2
+      [ "$integration_governance" = "$(manifest_value '  integration_governance_digest: ')" ] || stale "selected governance changed on the integration branch"
+      changed_material=$(material_changes "$cached_head" "$current_head" "$scratch/cached-domains") || exit 2
+      if [ -n "$changed_material" ]; then
+        first_material=$(printf '%s\n' "$changed_material" | sed -n '1s/^MATERIAL-CHANGED: //p')
+        stale "governing material changed — $first_material"
+      fi
+
+      task_tip=$(git rev-parse -q --verify HEAD 2>/dev/null || true)
+      if [ -n "$task_tip" ] && [ "$task_tip" != "$current_head" ]; then
+        git merge-base --is-ancestor "$cached_head" "$task_tip" >/dev/null 2>&1 || stale "task history no longer descends from the cached head"
+        if ! git merge-tree --write-tree "$current_head" "$task_tip" >/dev/null 2>&1; then
+          printf 'MERGE-REQUIRED: task conflicts with advanced integration head %s\n' "$current_head"
+          exit 1
+        fi
+      fi
+      refresh_integration "$current_head" "$integration_governance"
+      printf 'HEAD: advanced %s..%s — mergeable, brief reused\n' "$cached_head" "$current_head"
     fi
 
     printf 'BRIEF: fresh %s\n' "$task"
