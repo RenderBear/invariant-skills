@@ -5,7 +5,7 @@
 Invariant combines sparse semantic governance with short-lived planning and prospective-tree Git
 landing. Read [SPEC.md](SPEC.md) for the design of record.
 
-## Core invariants
+## Rules
 
 - Branch isolation and governance adoption are independent decisions.
 - Missing governance never initializes state or blocks ordinary work.
