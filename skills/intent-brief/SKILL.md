@@ -1,6 +1,6 @@
 ---
 name: intent-brief
-description: Compile the smallest applicable domain, contract, constraint, and live-claim context before repository work or landing. Use at intake and when scope or governing content changes; ordinary ungoverned work still uses an isolated work branch but needs no governance adoption.
+description: Compile the smallest applicable domain, architecture, contract, discovery, and live-claim context before repository work or landing. Use at intake and when scope or governing content changes; ordinary ungoverned work still uses an isolated work branch but needs no governance adoption.
 ---
 
 # intent-brief
@@ -15,8 +15,9 @@ code, and referenced material; never infer domain membership mechanically from a
    domain is correct.
 3. Run `scripts/resolve-config.sh` once and retain the integration target. Use
    `scripts/brief-support.sh reach --paths ... [--domain <id>]...` at intake.
-4. Read `rows <domain...>` and retain `digest <domain...>` when domains apply. Audits and
-   observations are evidence and never enter this digest.
+4. Read `rows <domain...>` and retain `digest <domain...>` when domains apply. Read the selected
+   architecture sections and relevant discovery warnings. Audits and discoveries never enter the
+   digest.
 5. Apply the durable-meaning test below. Adopt only meaning future work must preserve; use a scoped
    audit when the answer is uncertain.
 6. Open a task receipt with `scripts/session-brief.sh open`. On later turns, `check` permits reuse of
@@ -39,12 +40,13 @@ to that receipt rather than repeating the full scope.
 Posture is:
 
 - `local` — no accepted binding record intersects;
-- `bounded` — accepted contracts or constraints apply;
+- `bounded` — accepted architecture or contracts apply;
 - `open` — defining material, verification, or additive governance changes;
 - `gated` — accepted governance is removed or rewritten.
 
-Contracts supply executable verification. Constraints always require semantic compliance review
-and may additionally supply commands. `resolution: assisted` asks only for a consequential
+Contracts supply executable verification. Referenced architecture always requires semantic
+compliance review. Pending and causally suspect discoveries are warnings unless this work actually
+depends on their unresolved decision. `resolution: assisted` asks only for a consequential
 unresolved meaning; routine compliance remains agent work. Read
 [references/intent-interview.md](references/intent-interview.md) only for such a resolution.
 
@@ -71,13 +73,13 @@ semantic restart; a governing-material change, expanded semantic scope, or real 
 
 A brief remains usable until its domain-governance digest or selected defining material changes, its
 semantic scope expands, or its task branch conflicts with the integration head.
-Use `session-brief.sh check` for task reuse and `observe <digest> <domain...>` for a bare governance
+Use `session-brief.sh check` for task reuse and `check-digest <digest> <domain...>` for a bare governance
 check. The receipt is a disposable cache under Git's shared administrative directory; it is never
 authority and landing never consumes it. Git supplies causal order; no timestamp decides freshness.
 
-Before landing, recompute reach from the exact diff, review every emitted constraint against the
-prospective tree, collect affected verifiers, and pass scopes, domains, checks, and reviewed
-constraint ids to `intent-land`. Also pass exactly one boundary disposition: `no-record`,
+Before landing, recompute reach from the exact diff, review every emitted architecture decision
+against the prospective tree, collect affected verifiers, and pass scopes, domains, checks, and
+reviewed architecture pointers to `intent-land`. Also pass exactly one boundary disposition: `no-record`,
 `audit:<id>`, or `recorded` with each owning governance reference supplied through `--governance`.
 
 Use [references/intent-review.md](references/intent-review.md) only when an independent semantic

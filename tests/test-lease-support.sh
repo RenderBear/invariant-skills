@@ -14,17 +14,25 @@ git -C "$fixture" init -qb main
 git -C "$fixture" config user.name test
 git -C "$fixture" config user.email test@example.com
 git -C "$fixture" config commit.gpgsign false
-mkdir -p "$fixture/src"
+mkdir -p "$fixture/src" "$fixture/docs"
 echo x >"$fixture/src/a.py"
+cat >"$fixture/docs/architecture.md" <<'EOF'
+# Architecture
+
+## Engine boundary
+
+The engine owns OCR execution.
+EOF
 mkdir -p "$fixture/.intent"
 cat >"$fixture/.intent/DOMAINS.yml" <<'EOF'
 version: 1
 domains:
   - id: ocr.engine
-    description: Executes OCR.
+    responsibility: Executes OCR.
     authority: user:task:test#turn-1
+    architecture: [architecture:docs/architecture.md#engine-boundary]
 EOF
-git -C "$fixture" add src .intent/DOMAINS.yml
+git -C "$fixture" add src docs .intent/DOMAINS.yml
 git -C "$fixture" commit -qm seed
 digest=$(cd "$fixture" && sh "$root/skills/intent-brief/scripts/brief-support.sh" digest ocr.engine | sed -n 's/^DIGEST: //p')
 
@@ -87,6 +95,19 @@ ok "fresh is FRESH until an intersecting landing, then STALE"
 (cd "$fixture" && sh "$lease" release u1 >/dev/null)
 (cd "$fixture" && sh "$lease" release u2 >/dev/null)
 
+digest=$(cd "$fixture" && sh "$root/skills/intent-brief/scripts/brief-support.sh" digest ocr.engine | sed -n 's/^DIGEST: //p')
+(cd "$fixture" && sh "$lease" create architecture --scope area.src --paths src/future.py \
+  --domains ocr.engine --digest "$digest" >/dev/null)
+printf '\nClarified.\n' >>"$fixture/docs/architecture.md"
+git -C "$fixture" commit -qam "change selected architecture"
+if out=$(cd "$fixture" && sh "$lease" fresh architecture); then
+  die "selected architecture change left the lease fresh"
+fi
+printf '%s\n' "$out" | grep -q '^STALE: architecture — intersecting landing touched architecture:docs/architecture.md#engine-boundary' ||
+  die "architecture staleness did not identify the selected decision"
+(cd "$fixture" && sh "$lease" release architecture >/dev/null)
+ok "selected architecture changes stale semantic leases"
+
 # Conclusive liveness: DEAD by ancestry, RENEW by tip advance, QUIESCENT by
 # expired-and-unmoved, DEAD by branch-and-worktree gone.
 git -C "$fixture" checkout -qb unit/m1
@@ -140,4 +161,4 @@ if (cd "$fixture" && sh "$lease" release r1 >/dev/null 2>&1); then
 fi
 ok "release deletes exactly one lease and fails when absent"
 
-echo "11 lease-support checks passed"
+echo "12 lease-support checks passed"

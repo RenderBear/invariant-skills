@@ -9,6 +9,5 @@ diagrams, and CI configuration. Read history only around a concrete boundary. Ex
 commits establish observed shape and reliance, never accepted meaning.
 
 First inspect counts and likely sources. Open full documents only when a task or finding makes them
-relevant. Critical document locations that are useful across sessions may become tracked
-observations; authoritative documents are referenced directly by domains, contracts, or
-constraints.
+relevant. Unresolved evidence worth carrying forward may become a discovery; authoritative
+architecture sections and contracts are referenced by domains.

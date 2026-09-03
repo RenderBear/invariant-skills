@@ -9,7 +9,7 @@ clock and source of implementation truth.
 The system answers:
 
 1. Which semantic domains matter to this request?
-2. Which accepted cross-domain promises and architectural constraints apply?
+2. Which accepted architecture decisions and executable promises apply?
 3. Is adoption required before dependent work diverges?
 4. Can useful independent units run concurrently without claim collision?
 5. Does the exact prospective tree preserve accepted meaning and pass verification?
@@ -25,14 +25,14 @@ change can require adoption when it changes meaning that future work must preser
 
 | Plane | Objects | Lifetime | Standing |
 |---|---|---|---|
-| Governance | domains, contracts, constraints, defining material | durable | accepted authority |
-| Evidence | audits, observations | durable | observed, non-authoritative |
+| Governance | domains, architecture Markdown, contracts | durable | accepted authority |
+| Evidence | audits, discoveries | durable | observed, non-authoritative |
 | Planning | plans, claims, leases | one active context | coordination only |
 | Implementation | Git trees and commits | repository history | causal fact |
 | Verification | commands and prospective review | one candidate tree | measured evidence |
 
 Governance and planning may reference the same semantic identifiers but never grant each other
-authority. Audits and observations can motivate adoption but cannot bind work.
+authority. Audits and discoveries can motivate adoption but cannot bind work.
 
 ## 3. State
 
@@ -40,9 +40,8 @@ authority. Audits and observations can motivate adoption but cannot bind work.
 .intent/config.yml
 .intent/DOMAINS.yml
 .intent/CONTRACTS.yml
-.intent/CONSTRAINTS.yml
 .intent/audits/<id>.yml
-.intent/observations/<id>.yml
+.intent/discoveries/<id>.yml
 .intent/runtime/plans/<id>.yml
 .intent/runtime/leases/<unit>.yml
 ```
@@ -92,26 +91,29 @@ Every ordinary path has a mechanically derived coordination scope:
 
 Derived scopes organize claims and validate commit trailers. They carry no semantics or authority.
 
-There is no tracked route record. Routing is the brief-time operation that selects semantic
-domains and mechanically intersects declared surfaces. A separate pointer layer would repeat
-governance without adding authority.
+There is no tracked path-to-domain route record. Domains are thin semantic routing indexes: they
+state responsibility and point to architecture decisions and contracts. These pointers establish
+relevance, not truth; the referenced Markdown remains canonical and must still be compared with
+current evidence.
 
 A domain is a coherent cluster of responsibility, behavior, and change. It need not be a service,
 directory, bounded context, or public interface. Domain selection is semantic model work based on
-the request, implementation, observations, and architecture material.
+the request, implementation, discoveries, and architecture material.
 
 ```yaml
 version: 1
 domains:
   - id: ocr.orchestrator
-    description: Selects OCR engines and distributes work.
+    responsibility: Selects OCR engines and distributes work.
     authority: user:task:ocr-architecture#turn-4
     parent: ocr
-    material: [architecture:docs/architecture.md#ocr-orchestration]
+    architecture: [architecture:docs/architecture.md#ocr-orchestration]
+    contracts: [ocr.engine-protocol.v1]
 ```
 
-Validation checks identifiers, authority and material locators, parent references, and cycles. It
-never tries to prove domain membership from paths.
+Validation checks identifiers, authority, architecture anchors, contract pointers, parent
+references, and cycles. It never tries to prove domain membership from paths. The reverse map from
+decisions and contracts to domains is derived rather than maintained as another authority layer.
 
 ## 6. Contracts
 
@@ -125,45 +127,41 @@ contracts:
     authority: user:task:ocr-architecture#turn-4
     between: [ocr.orchestrator, ocr.engine.external]
     surfaces: [interface:OcrEngine, repo:schemas/ocr-engine.json]
-    material: [architecture:docs/architecture.md#ocr-engine-protocol]
+    architecture: [architecture:docs/architecture.md#ocr-engine-protocol]
     verifies: [command:scripts/verify-ocr-engine-protocol]
 ```
 
-Admission requires accepted authority, at least two domains, identifiable surfaces, defining
-material, real reliance, and executable verification. API, event, job, schema, and configuration
+Admission requires accepted authority, at least two domains, identifiable surfaces, referenced
+architecture, real reliance, and executable verification. API, event, job, schema, and configuration
 contracts use the same shape; their verifier owns format-specific mechanics.
 
-## 7. Constraints
+## 7. Architecture decisions
 
-A constraint is an accepted assertion about permitted architecture or behavior within one or more
-domains.
+Architecture Markdown is the canonical home for interdomain structure, rationale, philosophy,
+critical technology choices, consequences, and revision criteria. A stable heading anchor is the
+decision identity used by domains, contracts, reviews, and landing attestations.
 
-```yaml
-version: 1
-constraints:
-  - id: ocr.provider-isolation
-    assertion: Provider-specific behavior remains inside its engine domain.
-    authority: user:task:ocr-architecture#turn-4
-    applies_to: [ocr.orchestrator, ocr.engine.external]
-    surfaces: [repo:src/ocr]
-    material: [architecture:docs/architecture.md#ocr-engine-isolation]
-    verifies: [command:scripts/check-ocr-dependencies]
+```markdown
+## OCR engine isolation
+
+Provider-specific behavior remains inside its engine domain because orchestration must stay
+provider-neutral. Revisit this if engines no longer share lifecycle or replacement semantics.
 ```
 
-`surfaces` and `verifies` are optional. Constraint applicability and compliance may be semantic.
-When a constraint applies, landing requires an explicit prospective-tree review acknowledgement and
-runs its verifier when present. Assisted resolution asks only when compliance is ambiguous or the
-accepted constraint would change.
+A critical library belongs here only when the technology choice itself is intentional architecture
+with rationale, consequences, compatibility concerns, and replacement conditions. Incidental
+dependencies remain implementation detail.
 
-ADRs contain rationale. There is no separate decision object: binding consequences become domains,
-contracts, or constraints; nonbinding durable facts become observations; Git retains superseded
-content.
+Landing semantically reviews every applicable architecture pointer against the exact candidate and
+records it as `Intent-Architecture`. Contracts carry executable checks; architecture remains the
+source of non-executable architectural meaning. A separate authoritative constraint registry would
+duplicate that meaning, so new constraints are not created. Existing `CONSTRAINTS.yml` files remain
+binding and readable only while repositories migrate their assertions into anchored architecture.
 
-## 8. Material, audits, and observations
+## 8. Audits and discoveries
 
-Architecture material may live anywhere in the repository. Governing records reference exact ADRs,
-diagrams, specifications, schemas, or sections. A global docs folder is neither configured nor
-assumed.
+Architecture may live anywhere in the repository, but accepted pointers name exact Markdown
+sections. A global docs folder is neither configured nor assumed.
 
 Prefer focused design material over making a shared onboarding README an architecture hub. When a
 Markdown section is intentionally authoritative, its locator includes the heading anchor. Actual
@@ -192,24 +190,38 @@ findings:
     authority: user:task:ocr-architecture#turn-4
 ```
 
-`proposed` is `domain`, `contract`, `constraint`, `observation`, or `none`. `disposition` is
-`adoptable`, `needs-authority`, `needs-verifier`, `observation-only`, or `no-action`. Finding ids
+`proposed` is `domain`, `contract`, `architecture`, `discovery`, or `none`. `disposition` is
+`adoptable`, `needs-authority`, `needs-verifier`, `discovery-only`, or `no-action`. Finding ids
 are stable handles within the audit; adoption may name one when several findings exist, but the
 normal in-context flow is simply `intent-record adopt`.
 
-An observation is a tracked fact relevant to a semantic boundary but not binding. It records a
-statement, evidence, related governance identifiers, and a ground commit. Audit and observation
-freshness derives from ancestry and intersecting evidence changes. Neither enters governing digests
-or gates landing.
+A discovery is a tracked, non-authoritative queue item for evidence that may become responsibility,
+architecture, or a contract. It is created only when preserving the unresolved evidence will help
+future work; ordinary findings remain in the current task or audit.
 
 ```yaml
 version: 1
 id: ocr-provider-layout
+status: pending
 ground: 8a3e7d2
+tree: e1c52f0
+domains: [ocr.engine.external]
 statement: Provider implementations currently live below src/ocr/providers.
 evidence: [repo:src/ocr/providers]
-relates_to: [domain:ocr.engine.external]
+candidates: [architecture]
 ```
+
+The lifecycle is `pending → promoted | dismissed | superseded | stale`. Promotion atomically updates
+the architecture, contract, or domain pointers and records those targets in `resolution`. Dismissed
+and stale discoveries record a reason; superseded discoveries point to their replacement. Pending
+discoveries appear in relevant briefs as warnings. Evidence changes after the recorded tree produce
+`needs-review`, but neither pending nor suspect discoveries change reach or block landing by
+themselves. They become blocking only when semantic review determines that the current work depends
+on the unresolved decision.
+
+Freshness is causal: broken files, anchors, and identifiers are structural failures; intersecting
+changes make evidence suspect; actual contradiction requires interpretation. Legacy
+`observations/` files remain readable during migration but new evidence enters `discoveries/`.
 
 ## 9. Adoption
 
@@ -238,34 +250,37 @@ brief current work
   → durable meaning is uncertain: scoped audit
       → no record needed: record audit disposition, implement, and land
       → authority or verifier missing: resolve bounded issue before dependent work diverges
-      → accepted: record material plus minimal governance, re-brief, implement
+      → accepted: promote into architecture, a domain, or a contract; re-brief and implement
 ```
 
-`intent-audit` writes tracked evidence. `intent-record` is the only writer of accepted domains,
-contracts, constraints, and their defining material. A full audit requires an explicit human
-request and uses `--assisted` or `--auto` only after that authorization.
+`intent-audit` writes tracked evidence and queues only discoveries worth carrying forward.
+`intent-record` promotes accepted meaning into domains, architecture Markdown, and contracts, and
+closes the originating discovery in the same change. A full audit requires an explicit human request
+and uses `--assisted` or `--auto` only after that authorization.
 
 Choose the artifact from the meaning, not the technology: a domain gives a responsibility stable
-identity; a contract protects an executable promise relied on by another domain; a constraint binds
-permitted architecture or operational behavior; an observation preserves a relevant nonbinding
-fact; and an ADR or other defining material holds rationale. A missing contract verifier is a
+identity and retrieval boundary; architecture Markdown preserves rationale and permitted shape; a
+contract protects an executable promise relied on by another domain; and a discovery preserves
+unresolved evidence without binding work. A missing contract verifier is a
 `VERIFIER REQUIRED` result, not permission to silently omit the contract.
 
 ## 10. Briefing
 
-A brief selects semantic domains, then compiles their domains, contracts, constraints, and live
-claims. Contracts may also be reached mechanically through declared surfaces. Constraints with
-declared surfaces can be found mechanically, but domain selection remains semantic.
+A brief selects semantic domains, then compiles their responsibilities, architecture pointers,
+contracts, relevant pending discoveries, and live claims. Contracts may also be reached mechanically
+through declared surfaces. Domain selection remains semantic.
 
 Reach is:
 
 - `local` — no accepted binding record intersects;
-- `bounded` — applicable accepted records remain unchanged;
-- `open` — defining material, verification, or additive governance changes;
+- `bounded` — applicable architecture or contracts remain unchanged;
+- `open` — architecture, verification, or additive governance changes;
 - `gated` — accepted governance is removed or rewritten.
 
-The digest covers only selected domain, contract, and constraint content. Configuration, audits,
-observations, worker availability, Git ancestry, and runtime never enter it.
+The digest covers only selected domain and contract metadata, including their architecture pointers.
+Discovery content, audits, configuration, worker availability, Git ancestry, and runtime never enter
+it. Referenced architecture content is checked causally and independently rather than copied into
+the registry.
 
 After compiling a brief, the agent may write a disposable per-task receipt to Git's shared
 administrative directory. Reuse requires the same repository identity, goal digest, integration
@@ -325,8 +340,9 @@ synchronized only after the ref compare-and-swap succeeds. Against that exact tr
 4. resolves open or gated authority;
 5. validates all tracked intent;
 6. validates derived scope and semantic domain trailers;
-7. runs affected contract and constraint verifiers plus repository checks;
-8. requires acknowledgement of every affected semantic constraint review;
+7. runs affected contract verifiers plus repository checks;
+8. requires acknowledgement of every affected architecture review and records it as
+   `Intent-Architecture`;
 9. authenticates coordinated leases and their combined claims;
 10. compare-and-swaps the integration ref from the captured head;
 11. releases landed leases and removes a completed plan.
@@ -356,15 +372,15 @@ compare-and-swap fails rather than overwriting it.
 
 ## 13. Mechanical and semantic ownership
 
-Mechanics owns schemas, reference integrity, derived scopes, plan DAGs, reliance order, claim
-overlap, causal freshness, governing digests, affected verifier selection, exact-tree construction,
-trailer checks, boundary-disposition shape and references, lease authentication, and atomic ref
-updates.
+Mechanics owns schemas, pointer and anchor integrity, derived scopes, plan DAGs, reliance order,
+claim overlap, causal freshness, governing digests, discovery warning selection, affected verifier
+selection, exact-tree construction, trailer checks, boundary-disposition shape and references, lease
+authentication, and atomic ref updates.
 
-Model judgment owns outcome decomposition, domain selection, distinguishing contracts from
-constraints, interpreting evidence, authoring accepted assertions and material, reviewing semantic
-constraint compliance, the durable-meaning decision, and resolving incompatible meaning under
-configured authority.
+Model judgment owns outcome decomposition, domain selection, distinguishing architecture from
+contracts and incidental implementation, interpreting discovery evidence, authoring accepted
+meaning, reviewing architecture compliance, the durable-meaning decision, and resolving
+incompatible meaning under configured authority.
 
 The governing rule remains: isolate every mutation, then use the smallest governance and
 coordination lifecycle that safely completes the request.

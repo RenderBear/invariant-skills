@@ -18,7 +18,7 @@ dist/
 .DS_Store
 Thumbs.db
 
-# NOTE: .intent/ is deliberately NOT ignored. Accepted domains, contracts,
-# constraints, audits, and observations are reviewed repository state.
+# NOTE: .intent/ is deliberately NOT ignored. Accepted domains and contracts,
+# architecture pointers, discoveries, and audits are reviewed repository state.
 # `.intent/runtime/` creates its own ignore marker because it is local planning
 # state shared by linked worktrees and must also work before tracked intent exists.

@@ -1,6 +1,6 @@
 ---
 name: intent-land
-description: Construct, review, verify, and atomically land the exact prospective Git tree while authenticating coordinated leases and preserving accepted contracts and constraints.
+description: Construct, review, verify, and atomically land the exact prospective Git tree while authenticating coordinated leases and preserving accepted architecture and contracts.
 ---
 
 # intent-land
@@ -13,10 +13,11 @@ target a branch checked out elsewhere. That target worktree must have no tracked
 untracked files are preserved. A linked worker worktree is optional, and only coordinated work
 requires a plan and leases.
 
-Recompute reach against the exact candidate. Run all emitted contract and constraint verifiers.
+Recompute reach against the exact candidate. Run every emitted contract verifier.
 Never substitute a cached task brief for this recomputation.
-Semantically review every affected constraint against the candidate and pass its
-`--reviewed constraint:<id>` acknowledgement. Under `resolution: assisted`, ask only when the
+Semantically review every affected architecture pointer against the candidate and pass its
+`--reviewed architecture:<path>#<decision-id>` acknowledgement. Landing records these reviews as
+`Intent-Architecture`. Under `resolution: assisted`, ask only when the
 candidate conflicts with or changes accepted meaning; under `auto`, resolve within request
 authority. Removing or rewriting accepted governance remains gated.
 

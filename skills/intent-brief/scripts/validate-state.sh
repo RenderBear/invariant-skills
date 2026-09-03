@@ -17,10 +17,11 @@ domains="$tmp_root/domains"
 contracts="$tmp_root/contracts"
 constraints="$tmp_root/constraints"
 observations="$tmp_root/observations"
+discoveries="$tmp_root/discoveries"
 audits="$tmp_root/audits"
 violations="$tmp_root/violations"
 files="$tmp_root/files"
-: >"$domains"; : >"$contracts"; : >"$constraints"; : >"$observations"; : >"$audits"; : >"$violations"; : >"$files"
+: >"$domains"; : >"$contracts"; : >"$constraints"; : >"$observations"; : >"$discoveries"; : >"$audits"; : >"$violations"; : >"$files"
 cleanup() { rm -rf "$tmp_root"; }
 trap cleanup EXIT HUP INT TERM
 
@@ -99,21 +100,34 @@ fi
 parse_domains() {
   awk -v file="$1" '
     function val(line) { sub(/^[^:]*: */,"",line); sub(/[[:space:]]+#.*$/, "", line); return line }
-    function emit() { if(id!="") print "D|" file "|" id "|" description "|" authority "|" parent "|" material }
+    function emit() {
+      if(id!="") {
+        if(responsibility!="" && description!="") print "E|" file "|" id "|use responsibility, not both responsibility and legacy description"
+        if(architecture!="" && material!="") print "E|" file "|" id "|use architecture, not both architecture and legacy material"
+        if(responsibility=="") responsibility=description
+        print "D|" file "|" id "|" responsibility "|" authority "|" parent "|" architecture "|" contracts "|" material
+      }
+    }
     /^[a-z_]+:/ {
       key=$0; sub(/:.*/,"",key)
       if(key!="version" && key!="domains") print "E|" file "|top|unknown top-level field " key
       next
     }
-    /^  - id:/ { emit(); delete seen; id=val($0); description=authority=parent=material=""; next }
+    /^  - id:/ { emit(); delete seen; id=val($0); responsibility=description=authority=parent=architecture=contracts=material=""; next }
     id!="" && /^    [a-z_]+:/ {
       key=$0; sub(/^    /,"",key); sub(/:.*/,"",key); seen[key]++
       if(seen[key]>1) print "E|" file "|" id "|duplicate field " key
       value=val($0)
-      if(key=="description") description=value
+      if(key=="responsibility") responsibility=value
+      else if(key=="description") description=value
       else if(key=="authority") authority=value
       else if(key=="parent") parent=value
-      else if(key=="material") { material=value; if(value !~ /^\[.*\]$/) print "E|" file "|" id "|material must be an inline list" }
+      else if(key=="architecture" || key=="contracts" || key=="material") {
+        if(value !~ /^\[.*\]$/) print "E|" file "|" id "|" key " must be an inline list"
+        if(key=="architecture") architecture=value
+        else if(key=="contracts") contracts=value
+        else material=value
+      }
       else print "E|" file "|" id "|unknown domain field " key
     }
     END { emit() }
@@ -123,23 +137,29 @@ parse_domains() {
 parse_contracts() {
   awk -v file="$1" '
     function val(line) { sub(/^[^:]*: */,"",line); sub(/[[:space:]]+#.*$/, "", line); return line }
-    function emit() { if(id!="") print "C|" file "|" id "|" assertion "|" authority "|" between "|" surfaces "|" material "|" verifies }
+    function emit() {
+      if(id!="") {
+        if(architecture!="" && material!="") print "E|" file "|" id "|use architecture, not both architecture and legacy material"
+        print "C|" file "|" id "|" assertion "|" authority "|" between "|" surfaces "|" architecture "|" verifies "|" material
+      }
+    }
     /^[a-z_]+:/ {
       key=$0; sub(/:.*/,"",key)
       if(key!="version" && key!="contracts") print "E|" file "|top|unknown top-level field " key
       next
     }
-    /^  - id:/ { emit(); delete seen; id=val($0); assertion=authority=between=surfaces=material=verifies=""; next }
+    /^  - id:/ { emit(); delete seen; id=val($0); assertion=authority=between=surfaces=architecture=material=verifies=""; next }
     id!="" && /^    [a-z_]+:/ {
       key=$0; sub(/^    /,"",key); sub(/:.*/,"",key); seen[key]++
       if(seen[key]>1) print "E|" file "|" id "|duplicate field " key
       value=val($0)
       if(key=="assertion") assertion=value
       else if(key=="authority") authority=value
-      else if(key=="between" || key=="surfaces" || key=="material" || key=="verifies") {
+      else if(key=="between" || key=="surfaces" || key=="architecture" || key=="material" || key=="verifies") {
         if(value !~ /^\[.*\]$/) print "E|" file "|" id "|" key " must be an inline list"
         if(key=="between") between=value
         else if(key=="surfaces") surfaces=value
+        else if(key=="architecture") architecture=value
         else if(key=="material") material=value
         else verifies=value
       } else print "E|" file "|" id "|unknown contract field " key
@@ -191,6 +211,32 @@ parse_observation() {
       else if(key!="version") print "E|" file "|observation|unknown field " key
     }
     END { print "O|" file "|" id "|" ground "|" statement "|" evidence "|" relates }
+  ' "$1"
+}
+
+parse_discovery() {
+  awk -v file="$1" '
+    function val(line) { sub(/^[^:]*: */,"",line); sub(/[[:space:]]+#.*$/, "", line); return line }
+    /^[a-z_]+:/ {
+      key=$0; sub(/:.*/,"",key); seen[key]++
+      if(seen[key]>1) print "E|" file "|discovery|duplicate field " key
+      value=val($0)
+      if(key=="id") id=value
+      else if(key=="status") status=value
+      else if(key=="ground") ground=value
+      else if(key=="tree") tree=value
+      else if(key=="statement") statement=value
+      else if(key=="reason") reason=value
+      else if(key=="domains" || key=="evidence" || key=="candidates" || key=="resolution") {
+        if(value !~ /^\[.*\]$/) print "E|" file "|discovery|" key " must be an inline list"
+        if(key=="domains") domains=value
+        else if(key=="evidence") evidence=value
+        else if(key=="candidates") candidates=value
+        else resolution=value
+      }
+      else if(key!="version") print "E|" file "|discovery|unknown field " key
+    }
+    END { print "Y|" file "|" id "|" status "|" ground "|" tree "|" domains "|" statement "|" evidence "|" candidates "|" resolution "|" reason }
   ' "$1"
 }
 
@@ -261,11 +307,14 @@ while IFS= read -r file; do
     .intent/observations/*.yml|*/.intent/observations/*.yml)
       parse_observation "$file" >>"$observations"
       ;;
-    *) fail "$file is not a version-1 config, domain, contract, constraint, audit, or observation file" ;;
+    .intent/discoveries/*.yml|*/.intent/discoveries/*.yml)
+      parse_discovery "$file" >>"$discoveries"
+      ;;
+    *) fail "$file is not a version-1 config, domain, contract, legacy constraint, audit, discovery, or observation file" ;;
   esac
 done <"$files"
 
-awk -F'|' '$1=="E" { print $2 "|" $3 "|" $4 }' "$domains" "$contracts" "$constraints" "$observations" "$audits" |
+awk -F'|' '$1=="E" { print $2 "|" $3 "|" $4 }' "$domains" "$contracts" "$constraints" "$observations" "$discoveries" "$audits" |
 while IFS='|' read -r file id message; do fail "$file:$id $message"; done
 
 normalise_refs() { printf '%s' "$1" | tr -d '[],' | tr ' ' '\n' | sed '/^$/d'; }
@@ -288,6 +337,40 @@ check_material() {
       path=${locator#*:}; path=${path%%#*}; [ -e "$path" ] || fail "$label material '$path' does not exist" ;;
     task:*|url:http://*|url:https://*) ;;
     *) fail "$label material '$locator' must use repo:, architecture:, adr:, schema:, task:, or url:" ;;
+  esac
+}
+
+architecture_anchor_exists() {
+  path=$1; wanted=$2
+  awk -v wanted="$wanted" '
+    function slug(value) {
+      value=tolower(value)
+      gsub(/[`*_~]/, "", value)
+      gsub(/[^a-z0-9 _-]/, "", value)
+      gsub(/[[:space:]]+/, "-", value)
+      gsub(/^-+|-+$/, "", value)
+      return value
+    }
+    /^#{1,6}[[:space:]]+/ {
+      heading=$0
+      sub(/^#{1,6}[[:space:]]+/, "", heading)
+      sub(/[[:space:]]+#+[[:space:]]*$/, "", heading)
+      if(slug(heading)==wanted) found=1
+    }
+    END {exit found ? 0 : 1}
+  ' "$path"
+}
+
+check_architecture() {
+  locator=$1 label=$2
+  case "$locator" in
+    architecture:*#?*)
+      path=${locator#architecture:}; anchor=${path#*#}; path=${path%%#*}
+      case "$path" in *.md|*.markdown|*.MD|*.MARKDOWN) ;; *) fail "$label architecture '$path' must be Markdown"; return ;; esac
+      [ -f "$path" ] || { fail "$label architecture '$path' does not exist"; return; }
+      architecture_anchor_exists "$path" "$anchor" || fail "$label architecture anchor '#$anchor' does not exist in $path"
+      ;;
+    *) fail "$label architecture '$locator' must use architecture:<markdown-path>#<decision-id>" ;;
   esac
 }
 
@@ -333,14 +416,15 @@ sort "$domain_ids" | uniq -d | while IFS= read -r id; do [ -z "$id" ] || fail "d
 
 edges="$tmp_root/domain-edges"; : >"$edges"
 awk -F'|' '$1=="D" { print }' "$domains" |
-while IFS='|' read -r _ file id description authority parent material; do
+while IFS='|' read -r _ file id responsibility authority parent architecture contracts material; do
   valid_id "$id" || fail "$file invalid domain id '$id'"
-  [ -n "$description" ] || fail "$file:$id missing description"
+  [ -n "$responsibility" ] || fail "$file:$id missing responsibility"
   check_authority "$authority" "$file:$id"
   if [ -n "$parent" ]; then
     grep -qxF "$parent" "$domain_ids" || fail "$file:$id references missing parent '$parent'"
     printf '%s|%s\n' "$id" "$parent" >>"$edges"
   fi
+  for locator in $(normalise_refs "$architecture"); do check_architecture "$locator" "$file:$id"; done
   for locator in $(normalise_refs "$material"); do check_material "$locator" "$file:$id"; done
 done
 
@@ -371,8 +455,8 @@ while IFS='|' read -r _ file id summary evidence proposed disposition authority;
   audit_tree=$(awk -F'|' -v f="$file" '$1=="A" && $2==f { print $5; exit }' "$audits")
   count=0; for locator in $(normalise_refs "$evidence"); do count=$((count + 1)); check_evidence "$locator" "$file:$id" "$audit_tree"; done
   [ "$count" -gt 0 ] || fail "$file:$id requires evidence"
-  case "$proposed" in domain|contract|constraint|observation|none) ;; *) fail "$file:$id invalid proposed value '$proposed'" ;; esac
-  case "$disposition" in adoptable|needs-authority|needs-verifier|observation-only|no-action) ;; *) fail "$file:$id invalid disposition '$disposition'" ;; esac
+  case "$proposed" in domain|contract|architecture|discovery|none|constraint|observation) ;; *) fail "$file:$id invalid proposed value '$proposed'" ;; esac
+  case "$disposition" in adoptable|needs-authority|needs-verifier|discovery-only|no-action|observation-only) ;; *) fail "$file:$id invalid disposition '$disposition'" ;; esac
   [ -z "$authority" ] || check_authority "$authority" "$file:$id"
 done
 
@@ -386,7 +470,7 @@ contract_ids="$tmp_root/contract-ids"
 awk -F'|' '$1=="C" { print $3 }' "$contracts" >"$contract_ids"
 sort "$contract_ids" | uniq -d | while IFS= read -r id; do [ -z "$id" ] || fail "duplicate contract '$id'"; done
 awk -F'|' '$1=="C" { print }' "$contracts" |
-while IFS='|' read -r _ file id assertion authority between surfaces material verifies; do
+while IFS='|' read -r _ file id assertion authority between surfaces architecture verifies material; do
   valid_id "$id" || fail "$file invalid contract id '$id'"
   [ -n "$assertion" ] || fail "$file:$id missing assertion"
   check_authority "$authority" "$file:$id"
@@ -398,10 +482,19 @@ while IFS='|' read -r _ file id assertion authority between surfaces material ve
   [ "$count" -ge 2 ] || fail "$file:$id requires at least two domains in between"
   count=0; for locator in $(normalise_refs "$surfaces"); do count=$((count + 1)); check_surface "$locator" "$file:$id"; done
   [ "$count" -gt 0 ] || fail "$file:$id requires at least one surface"
-  count=0; for locator in $(normalise_refs "$material"); do count=$((count + 1)); check_material "$locator" "$file:$id"; done
+  count=0
+  for locator in $(normalise_refs "$architecture"); do count=$((count + 1)); check_architecture "$locator" "$file:$id"; done
+  for locator in $(normalise_refs "$material"); do count=$((count + 1)); check_material "$locator" "$file:$id"; done
   [ "$count" -gt 0 ] || fail "$file:$id requires defining material"
   count=0; for locator in $(normalise_refs "$verifies"); do count=$((count + 1)); check_verifier "$locator" "$file:$id"; done
   [ "$count" -gt 0 ] || fail "$file:$id requires executable verification"
+done
+
+awk -F'|' '$1=="D" { print }' "$domains" |
+while IFS='|' read -r _ file id responsibility authority parent architecture contracts material; do
+  for contract in $(normalise_refs "$contracts"); do
+    grep -qxF "$contract" "$contract_ids" || fail "$file:$id references missing contract '$contract'"
+  done
 done
 
 constraint_ids="$tmp_root/constraint-ids"
@@ -437,6 +530,47 @@ while IFS='|' read -r _ file id ground statement evidence relates; do
       *) fail "$file:$id relates_to '$ref' must name domain:, contract:, or constraint:" ;;
     esac
   done
+done
+
+discovery_ids="$tmp_root/discovery-ids"
+awk -F'|' '$1=="Y" { print $3 }' "$discoveries" >"$discovery_ids"
+sort "$discovery_ids" | uniq -d | while IFS= read -r id; do [ -z "$id" ] || fail "duplicate discovery '$id'"; done
+awk -F'|' '$1=="Y" { print }' "$discoveries" |
+while IFS='|' read -r _ file id status ground tree selected statement evidence candidates resolution reason; do
+  valid_id "$id" || fail "$file invalid discovery id '$id'"
+  base=$(basename "$file"); base=${base%.*}; [ "$base" = "$id" ] || fail "$file filename must be $id.yml"
+  case "$status" in pending|promoted|dismissed|superseded|stale) ;; *) fail "$file:$id invalid status '$status'" ;; esac
+  [ -n "$statement" ] || fail "$file:$id missing statement"
+  [ -n "$ground" ] || fail "$file:$id missing ground"
+  [ -n "$tree" ] || fail "$file:$id missing tree"
+  if [ "$ground" != unborn ]; then git rev-parse -q --verify "$ground^{commit}" >/dev/null 2>&1 || fail "$file:$id ground '$ground' does not resolve"; fi
+  if [ "$tree" != empty ]; then git rev-parse -q --verify "$tree^{tree}" >/dev/null 2>&1 || fail "$file:$id tree '$tree' does not resolve"; fi
+  for domain in $(normalise_refs "$selected"); do grep -qxF "$domain" "$domain_ids" || fail "$file:$id references missing domain '$domain'"; done
+  count=0; for locator in $(normalise_refs "$evidence"); do count=$((count + 1)); check_evidence "$locator" "$file:$id" "$tree"; done
+  [ "$count" -gt 0 ] || fail "$file:$id requires evidence"
+  candidate_count=0
+  for candidate in $(normalise_refs "$candidates"); do
+    candidate_count=$((candidate_count + 1))
+    case "$candidate" in domain|architecture|contract) ;; *) fail "$file:$id invalid candidate '$candidate'" ;; esac
+  done
+  [ "$status" != pending ] || [ "$candidate_count" -gt 0 ] || fail "$file:$id pending discovery requires at least one candidate"
+  resolution_count=0; superseding=0
+  for ref in $(normalise_refs "$resolution"); do
+    resolution_count=$((resolution_count + 1))
+    case "$ref" in
+      domain:*) grep -qxF "${ref#domain:}" "$domain_ids" || fail "$file:$id resolves to missing '$ref'" ;;
+      contract:*) grep -qxF "${ref#contract:}" "$contract_ids" || fail "$file:$id resolves to missing '$ref'" ;;
+      architecture:*) check_architecture "$ref" "$file:$id" ;;
+      discovery:*) superseding=1; grep -qxF "${ref#discovery:}" "$discovery_ids" || fail "$file:$id resolves to missing '$ref'" ;;
+      *) fail "$file:$id resolution '$ref' must name domain:, contract:, architecture:, or discovery:" ;;
+    esac
+  done
+  case "$status" in
+    pending) [ "$resolution_count" -eq 0 ] || fail "$file:$id pending discovery cannot have a resolution" ;;
+    promoted) [ "$resolution_count" -gt 0 ] || fail "$file:$id promoted discovery requires a resolution" ;;
+    superseded) [ "$superseding" -eq 1 ] || fail "$file:$id superseded discovery must resolve to discovery:<id>" ;;
+    dismissed|stale) [ -n "$reason" ] || fail "$file:$id $status discovery requires a reason" ;;
+  esac
 done
 
 if [ -s "$violations" ]; then

@@ -313,6 +313,14 @@ do_fresh() {
       hitp="governance"
     fi
   fi
+  if [ -z "$hitp" ] && [ -n "$claim_domains" ]; then
+    set -- "$ground" "refs/heads/$target"
+    for domain in $claim_domains; do set -- "$@" "$domain"; done
+    material=$(sh "$script_dir/../../intent-brief/scripts/brief-support.sh" material-changes "$@" 2>/dev/null || true)
+    if [ -n "$material" ]; then
+      hitp=$(printf '%s\n' "$material" | sed -n '1s/^MATERIAL-CHANGED: //p')
+    fi
+  fi
   if [ -n "$hitp" ]; then
     echo "STALE: $unit — intersecting landing touched $hitp; re-lease against the new ground or release"
     exit 1
