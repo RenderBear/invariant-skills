@@ -2,22 +2,12 @@
 
 git-intent uses Git's own mechanics to keep accepted architectural meaning durable, active coordination disposable, and both progressively informed by the repository itself.
 
-![Accepted intent persists above free-flowing local plans, with repository evidence progressively discovering what must be preserved.](.github/assets/domains-and-contracts.svg)
+- **Governance:** Stable responsibilities, relied-on promises, and architectural limits are discovered progressively, accepted explicitly, tracked with the repository, and verified mechanically where possible.
+- **Planning:** Plans, claims, and leases coordinate active branch work locally, then may disappear after the work safely converges.
 
-## Repository memory
+![Durable repository intent sits above local work and Git as a causal substrate, connected by progressive discovery and mechanical verification.](.github/assets/domains-and-contracts.svg)
 
-Start sparse. As work reveals a stable responsibility, a relied-on boundary, or a design limit that
-future changes must respect, git-intent surfaces it for acceptance. Only that accepted meaning is
-tracked with the code. Promises that can be tested name executable checks; judgments that cannot be
-reduced to a command remain explicit review questions. The model grows from evidence instead of
-requiring an upfront architecture inventory.
-
-## Working coordination
-
-Plans, claims, and leases are ignored local state for the work in flight. They help agents divide,
-sequence, and safely converge branch work, then may disappear after landing. Git ancestry, tree
-identity, scoped checks, and atomic ref updates provide the hard guarantees without turning active
-planning into permanent repository meaning. The complete model is documented in [SPEC.md](SPEC.md).
+The complete model is documented in [SPEC.md](SPEC.md).
 
 ## Install
 

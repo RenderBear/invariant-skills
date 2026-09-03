@@ -1,36 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
-  <title id="title">Durable repository intent, local work, and Git's causal substrate</title>
-  <desc id="desc">Durable repository intent sits above free-flowing local work and Git's causal substrate. Progressive discovery moves upward from Git into accepted intent, while mechanical verification moves downward toward Git.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="320" viewBox="0 0 960 400" role="img" aria-labelledby="title desc">
+  <title id="title">Durable repository intent, local work, and Git as a causal substrate</title>
+  <desc id="desc">Durable repository intent sits above local work and Git as a causal substrate. Progressive discovery moves upward, while mechanical verification moves downward.</desc>
 
   <defs>
-    <marker id="discoveryArrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
-      <path d="M 0 0 L 9 4.5 L 0 9 z" fill="#59d8ee"/>
+    <marker id="up" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#58c7df"/>
     </marker>
-    <marker id="verifyArrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
-      <path d="M 0 0 L 9 4.5 L 0 9 z" fill="#7dd3a7"/>
+    <marker id="down" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#70c99a"/>
     </marker>
   </defs>
 
-  <rect x="1" y="1" width="1198" height="558" rx="22" fill="#0c111b" stroke="#2b3443" stroke-width="2"/>
+  <rect width="960" height="400" fill="#0d1117"/>
 
   <g font-family="Inter, ui-sans-serif, system-ui, -apple-system, sans-serif">
-    <rect x="190" y="64" width="820" height="112" rx="12" fill="#121b29" stroke="#46657a"/>
-    <text x="600" y="129" text-anchor="middle" fill="#f2f5f8" font-size="25" font-weight="650">Durable repo intent</text>
+    <rect x="160" y="38" width="640" height="70" rx="8" fill="#161c25" stroke="#303946"/>
+    <text x="480" y="80" text-anchor="middle" fill="#f0f3f6" font-size="21" font-weight="600">Durable repo intent</text>
 
-    <text x="600" y="248" text-anchor="middle" fill="#e4e8ee" font-size="20" font-weight="600">Local work</text>
-    <path d="M 333 304 C 430 247, 510 354, 600 304 C 690 254, 770 361, 867 304" fill="none" stroke="#78849a" stroke-width="2.5" stroke-linecap="round"/>
-    <circle cx="333" cy="304" r="5" fill="#59d8ee"/>
-    <circle cx="600" cy="304" r="5" fill="#a99be8"/>
-    <circle cx="867" cy="304" r="5" fill="#d7a76a"/>
-    <text x="600" y="344" text-anchor="middle" fill="#7f8998" font-size="14">plans · claims · leases</text>
+    <text x="480" y="158" text-anchor="middle" fill="#e4e8ed" font-size="18" font-weight="600">Local work</text>
+    <path d="M 312 212 C 372 177, 420 242, 480 212 C 540 182, 588 247, 648 212" fill="none" stroke="#778293" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="312" cy="212" r="4" fill="#58c7df"/>
+    <circle cx="480" cy="212" r="4" fill="#9b8cda"/>
+    <circle cx="648" cy="212" r="4" fill="#d6a15f"/>
+    <text x="480" y="248" text-anchor="middle" fill="#828b99" font-size="13">plans · claims · leases</text>
 
-    <rect x="190" y="400" width="820" height="96" rx="12" fill="#111823" stroke="#3d4655"/>
-    <text x="600" y="458" text-anchor="middle" fill="#f2f5f8" font-size="23" font-weight="650">Git · causal substrate</text>
+    <rect x="160" y="294" width="640" height="66" rx="8" fill="#141a22" stroke="#303946"/>
+    <text x="480" y="335" text-anchor="middle" fill="#f0f3f6" font-size="20" font-weight="600">Git as a causal substrate</text>
 
-    <path d="M 151 450 C 99 378, 102 188, 162 126" fill="none" stroke="#59d8ee" stroke-width="2.5" stroke-linecap="round" marker-end="url(#discoveryArrow)"/>
-    <text x="100" y="288" text-anchor="middle" fill="#73d9ea" font-size="11" font-weight="650" letter-spacing="1.4" transform="rotate(-90 100 288)">PROGRESSIVE DISCOVERY</text>
+    <path d="M 135 327 C 96 274, 98 124, 146 73" fill="none" stroke="#58c7df" stroke-width="2.25" stroke-linecap="round" marker-end="url(#up)"/>
+    <text x="83" y="200" text-anchor="middle" fill="#69ccdf" font-size="10" font-weight="650" letter-spacing="1.2" transform="rotate(-90 83 200)">PROGRESSIVE DISCOVERY</text>
 
-    <path d="M 1040 126 C 1098 190, 1101 380, 1049 450" fill="none" stroke="#7dd3a7" stroke-width="2.5" stroke-linecap="round" marker-end="url(#verifyArrow)"/>
-    <text x="1101" y="288" text-anchor="middle" fill="#8bd6ae" font-size="11" font-weight="650" letter-spacing="1.4" transform="rotate(90 1101 288)">MECHANICAL VERIFICATION</text>
+    <path d="M 814 73 C 862 124, 864 274, 825 327" fill="none" stroke="#70c99a" stroke-width="2.25" stroke-linecap="round" marker-end="url(#down)"/>
+    <text x="877" y="200" text-anchor="middle" fill="#7acda0" font-size="10" font-weight="650" letter-spacing="1.2" transform="rotate(90 877 200)">MECHANICAL VERIFICATION</text>
   </g>
 </svg>
