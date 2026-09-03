@@ -4,7 +4,7 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 resolver="$root/skills/intent-brief/scripts/resolve-config.sh"
-fixture=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-config-test.XXXXXX")
+fixture=$(mktemp -d "${TMPDIR:-/tmp}/invariant-config-test.XXXXXX")
 cleanup() { rm -rf "$fixture"; }
 trap cleanup EXIT HUP INT TERM
 

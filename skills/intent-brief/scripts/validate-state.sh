@@ -1,5 +1,5 @@
 #!/bin/sh
-# Validate tracked git-intent state. Domains are semantic: validation checks
+# Validate tracked Invariant state. Domains are semantic: validation checks
 # identity, references, and material, never filesystem membership. Ignored
 # runtime planning is deliberately outside this validator.
 
@@ -12,7 +12,7 @@ case "${1:-}" in
   --audit) shift ;;
 esac
 
-tmp_root=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-state.XXXXXX") || exit 2
+tmp_root=$(mktemp -d "${TMPDIR:-/tmp}/invariant-state.XXXXXX") || exit 2
 domains="$tmp_root/domains"
 contracts="$tmp_root/contracts"
 constraints="$tmp_root/constraints"
@@ -219,7 +219,7 @@ while IFS= read -r file; do
   case "$file" in
     .intent/config.yml|*/.intent/config.yml)
       if ! error=$(sh "$script_dir/resolve-config.sh" 2>&1 >/dev/null); then
-        fail "$file $(printf '%s' "$error" | sed 's/^git-intent: //')"
+        fail "$file $(printf '%s' "$error" | sed 's/^Invariant: //')"
       fi
       ;;
     .intent/DOMAINS.yml|*/.intent/DOMAINS.yml)

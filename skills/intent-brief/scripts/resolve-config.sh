@@ -1,12 +1,12 @@
 #!/bin/sh
-# Resolve the two repository-level choices git-intent cannot safely invent:
+# Resolve the two repository-level choices Invariant cannot safely invent:
 # how consequential ambiguity is resolved, and which local branch is the
 # integration target. Planning remains an agent/runtime concern.
 
 set -eu
 
 root=$(git rev-parse --show-toplevel 2>/dev/null) || {
-  echo "git-intent: not inside a Git repository" >&2
+  echo "Invariant: not inside a Git repository" >&2
   exit 2
 }
 config="$root/.intent/config.yml"
@@ -18,7 +18,7 @@ current_branch() {
   fi
   branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
   [ -n "$branch" ] || {
-    echo "git-intent: integration_branch is not configured and HEAD is detached" >&2
+    echo "Invariant: integration_branch is not configured and HEAD is detached" >&2
     exit 2
   }
   printf '%s\n' "$branch"
@@ -41,7 +41,7 @@ emit() {
        { [ "${GIT_INTENT_ALLOW_UNBORN:-0}" = 1 ] && [ "${GIT_INTENT_INTEGRATION_TARGET:-}" = "$branch" ]; }; then
       unborn=1
     else
-      echo "git-intent: configured integration branch '$branch' does not exist locally" >&2
+      echo "Invariant: configured integration branch '$branch' does not exist locally" >&2
       exit 2
     fi
   fi
@@ -60,7 +60,7 @@ if [ ! -e "$config" ]; then
 fi
 
 [ -f "$config" ] || {
-  echo "git-intent: .intent/config.yml is not a regular file" >&2
+  echo "Invariant: .intent/config.yml is not a regular file" >&2
   exit 2
 }
 
@@ -70,7 +70,7 @@ integration_branch=$(sed -n 's/^integration_branch:[[:space:]]*//p' "$config")
 unknown=$(awk -F: '/^[a-z_]+:/ && $1 != "version" && $1 != "resolution" && $1 != "integration_branch" { print $1 }' "$config")
 
 [ "$version" = "1" ] || {
-  echo "git-intent: .intent/config.yml must declare version: 1" >&2
+  echo "Invariant: .intent/config.yml must declare version: 1" >&2
   exit 2
 }
 
@@ -78,13 +78,13 @@ unknown=$(awk -F: '/^[a-z_]+:/ && $1 != "version" && $1 != "resolution" && $1 !=
 case "$resolution" in
   assisted|auto) ;;
   *)
-    echo "git-intent: .intent/config.yml has invalid resolution '$resolution' (use assisted or auto)" >&2
+    echo "Invariant: .intent/config.yml has invalid resolution '$resolution' (use assisted or auto)" >&2
     exit 2
     ;;
 esac
 
 if [ -n "$unknown" ]; then
-  echo "git-intent: .intent/config.yml has unknown field '$unknown'" >&2
+  echo "Invariant: .intent/config.yml has unknown field '$unknown'" >&2
   exit 2
 fi
 

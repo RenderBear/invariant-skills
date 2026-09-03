@@ -7,7 +7,7 @@ root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 runtime_support="$root/skills/intent-coordinate/scripts/runtime-support.sh"
 lease_support="$root/skills/intent-coordinate/scripts/lease-support.sh"
 brief_support="$root/skills/intent-brief/scripts/brief-support.sh"
-fixture=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-runtime-test.XXXXXX")
+fixture=$(mktemp -d "${TMPDIR:-/tmp}/invariant-runtime-test.XXXXXX")
 linked="$fixture-linked"
 cleanup() { rm -rf "$fixture" "$linked"; }
 trap cleanup EXIT HUP INT TERM

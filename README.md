@@ -1,6 +1,8 @@
-# git-intent: Intent layer for Agentic Work
+# Invariant
 
-git-intent uses Git's own mechanics to keep accepted architectural meaning durable, active coordination disposable, and both progressively informed by the repository itself.
+**Preserve accepted meaning across agentic change.**
+
+Invariant uses Git's own mechanics to keep accepted architectural meaning durable, active coordination disposable, and both progressively informed by the repository itself.
 
 - **Governance:** Stable responsibilities, relied-on promises, and architectural limits are discovered progressively, accepted explicitly, tracked with the repository, and verified mechanically where possible.
 - **Planning:** Plans, claims, and leases coordinate active branch work locally, then may disappear after the work safely converges.
@@ -9,7 +11,12 @@ git-intent uses Git's own mechanics to keep accepted architectural meaning durab
 
 The complete model is documented in [SPEC.md](SPEC.md).
 
+The `.intent/` state directory, `intent-*` skill names, and `Intent-*` commit trailers remain stable
+protocol names under the Invariant framework.
+
 ## Install
+
+Install from the current source repository:
 
 ```bash
 npx skills add RenderBear/git-intent --all
@@ -17,6 +24,25 @@ npx skills add RenderBear/git-intent --all
 
 Copy the fenced block from [AGENTS.example.md](AGENTS.example.md) into the repository's
 always-loaded agent instructions.
+
+## Optional full audit
+
+Ordinary work does not require repository-wide setup. When inheriting an existing repository or
+wanting a deliberate architecture review, ask your agent:
+
+> Run a full Invariant audit of this repository in assisted mode. Explain the findings in plain
+> language, recommend one next action, and do not adopt governance until I approve.
+
+The audit records causal evidence without making it authoritative. Its closeout tells you exactly
+what to do next:
+
+- `NO RECORD NEEDED` — continue normal work; no governance adoption is required.
+- `RECORD READY` — ask the agent to record the recommended responsibility, promise, or constraint.
+- `RESOLUTION REQUIRED` — answer the single behavior question before adoption.
+- `VERIFIER REQUIRED` — implement the named executable check before recording the contract.
+
+Use auto mode only when the current request already gives the agent authority to resolve
+consequential ambiguity.
 
 ## Skills
 
@@ -49,7 +75,7 @@ Both modes enforce recorded contracts and constraints. Neither mode grants permi
 explicit requirements or perform external actions such as pushing, deploying, publishing, or
 destructive cleanup.
 
-`integration_branch` optionally fixes the local convergence target. Without it, git-intent captures
+`integration_branch` optionally fixes the local convergence target. Without it, Invariant captures
 the current branch when work begins.
 
 ## Repository state

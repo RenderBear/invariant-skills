@@ -1,4 +1,4 @@
-# git-intent — agent instructions to copy
+# Invariant — agent instructions to copy
 
 Append this block to the repository's always-loaded agent instructions.
 

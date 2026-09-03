@@ -2,7 +2,7 @@
 
 ## Repository purpose
 
-git-intent combines sparse semantic governance with short-lived planning and prospective-tree Git
+Invariant combines sparse semantic governance with short-lived planning and prospective-tree Git
 landing. Read [SPEC.md](SPEC.md) for the design of record.
 
 ## Core invariants

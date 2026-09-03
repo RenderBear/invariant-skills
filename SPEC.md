@@ -1,6 +1,6 @@
-# git-intent — design of record
+# Invariant — design of record
 
-git-intent maintains sparse accepted architecture over a Git repository, a separate short-lived
+Invariant maintains sparse accepted architecture over a Git repository, a separate short-lived
 planning plane for live work, and an atomic local convergence boundary. Git remains the causal
 clock and source of implementation truth.
 

@@ -4,7 +4,7 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 brief="$root/skills/intent-brief/scripts/brief-support.sh"
-fixture=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-brief-test.XXXXXX")
+fixture=$(mktemp -d "${TMPDIR:-/tmp}/invariant-brief-test.XXXXXX")
 cleanup() { rm -rf "$fixture"; }
 trap cleanup EXIT HUP INT TERM
 

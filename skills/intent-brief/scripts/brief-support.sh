@@ -32,7 +32,7 @@ cmd=$1
 shift
 
 root=$(git rev-parse --show-toplevel 2>/dev/null) || {
-  echo "git-intent: not inside a Git repository" >&2
+  echo "Invariant: not inside a Git repository" >&2
   exit 2
 }
 cd "$root" || exit 2
@@ -184,7 +184,7 @@ collect_inputs() {
 expand_domains() {
   selected=$1; expanded=$2
   cp "$selected" "$expanded"
-  rows=$(mktemp "${TMPDIR:-/tmp}/git-intent-domains.XXXXXX") || exit 2
+  rows=$(mktemp "${TMPDIR:-/tmp}/invariant-domains.XXXXXX") || exit 2
   domain_rows >"$rows"
   changed=1
   while [ "$changed" -eq 1 ]; do
@@ -192,7 +192,7 @@ expand_domains() {
     while IFS= read -r domain; do
       [ -n "$domain" ] || continue
       if ! cut -d'|' -f1 "$rows" | grep -qxF "$domain"; then
-        rm -f "$rows"; echo "git-intent: unknown semantic domain '$domain'" >&2; return 1
+        rm -f "$rows"; echo "Invariant: unknown semantic domain '$domain'" >&2; return 1
       fi
       parent=$(awk -F'|' -v d="$domain" '$1==d {print $2; exit}' "$rows")
       if [ -n "$parent" ] && ! grep -qxF "$parent" "$expanded"; then printf '%s\n' "$parent" >>"$expanded"; changed=1; fi
@@ -268,7 +268,7 @@ compile_affected() {
 
 with_inputs() {
   mode=$1; shift
-  tmp=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-brief.XXXXXX") || exit 2
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/invariant-brief.XXXXXX") || exit 2
   trap 'rm -rf "$tmp"' EXIT HUP INT TERM
   paths="$tmp/paths"; selected="$tmp/selected"; interfaces="$tmp/interfaces"; base_file="$tmp/base"; expanded="$tmp/expanded"; affected="$tmp/affected"
   collect_inputs "$paths" "$selected" "$interfaces" "$base_file" "$@"
@@ -320,8 +320,8 @@ with_inputs() {
 }
 
 governing_content() {
-  selected=$(mktemp "${TMPDIR:-/tmp}/git-intent-selected.XXXXXX") || exit 2
-  expanded=$(mktemp "${TMPDIR:-/tmp}/git-intent-expanded.XXXXXX") || { rm -f "$selected"; exit 2; }
+  selected=$(mktemp "${TMPDIR:-/tmp}/invariant-selected.XXXXXX") || exit 2
+  expanded=$(mktemp "${TMPDIR:-/tmp}/invariant-expanded.XXXXXX") || { rm -f "$selected"; exit 2; }
   : >"$selected"; for domain do printf '%s\n' "$domain" >>"$selected"; done; sort -u "$selected" -o "$selected"
   expand_domains "$selected" "$expanded" || { rm -f "$selected" "$expanded"; return 2; }
   domain_rows | while IFS='|' read -r id parent description material authority; do
@@ -369,7 +369,7 @@ do_message() {
   plan_file=""
   if [ -n "$plan" ]; then
     runtime=$(sh "$runtime_script" root) || exit 2; plan_file="$runtime/plans/$plan.yml"
-    [ -f "$plan_file" ] || { echo "git-intent: no plan '$plan' to stamp" >&2; exit 2; }
+    [ -f "$plan_file" ] || { echo "Invariant: no plan '$plan' to stamp" >&2; exit 2; }
   fi
   printf '%s\n\n' "$subject"
   for unit in $units; do printf 'Intent-Unit: %s\n' "$unit"; done

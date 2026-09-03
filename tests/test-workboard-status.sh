@@ -6,7 +6,7 @@ root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 status="$root/skills/intent-coordinate/scripts/workboard-status.sh"
 plan_support="$root/skills/intent-coordinate/scripts/workboard-support.sh"
 brief="$root/skills/intent-brief/scripts/brief-support.sh"
-fixture=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-plan-test.XXXXXX")
+fixture=$(mktemp -d "${TMPDIR:-/tmp}/invariant-plan-test.XXXXXX")
 cleanup() { rm -rf "$fixture"; }
 trap cleanup EXIT HUP INT TERM
 

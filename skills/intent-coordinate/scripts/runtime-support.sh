@@ -24,7 +24,7 @@ EOF
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
-  echo "git-intent: not inside a non-bare Git worktree" >&2
+  echo "Invariant: not inside a non-bare Git worktree" >&2
   exit 2
 }
 primary_root=$(git worktree list --porcelain 2>/dev/null |
