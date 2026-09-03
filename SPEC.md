@@ -50,6 +50,17 @@ authority. Audits and observations can motivate adoption but cannot bind work.
 Runtime is ignored and anchored in the primary worktree so all linked worktrees see the same live
 claims. Deleting it cannot change repository meaning, though it can discard active coordination.
 
+Reusable task brief receipts live outside repository state at:
+
+```text
+<git-common-dir>/invariant/briefs/<task-id>.yml
+```
+
+They are derived caches, not another plane of authority or coordination. A receipt binds its goal,
+integration target and head, selected scope, governance digest, and brief and landing package hashes.
+It permits reuse of material already retained in the active context; it does not make that material
+authoritative and is discarded or rebuilt when any binding input changes.
+
 ## 4. Configuration
 
 ```yaml
@@ -154,6 +165,12 @@ Architecture material may live anywhere in the repository. Governing records ref
 diagrams, specifications, schemas, or sections. A global docs folder is neither configured nor
 assumed.
 
+Prefer focused design material over making a shared onboarding README an architecture hub. When a
+Markdown section is intentionally authoritative, its locator includes the heading anchor. Actual
+changed hunks are routed only to the section containing them; when no diff is available or an anchor
+cannot be resolved, matching remains conservatively file-wide. Interface locators remain the
+preferred mechanical route for a changed relied-on surface, while domain selection remains semantic.
+
 An audit is a tracked report over a declared commit and exact tree. It contains scope, evidence,
 bounded findings, and whether record, authority, verifier work, or no action follows. Audit is
 non-authoritative even though it is committed.
@@ -249,6 +266,13 @@ Reach is:
 
 The digest covers only selected domain, contract, and constraint content. Configuration, audits,
 observations, worker availability, Git ancestry, and runtime never enter it.
+
+After compiling a brief, the agent may write a disposable per-task receipt to Git's shared
+administrative directory. Reuse requires the same repository identity, goal digest, integration
+target and head, brief and landing package hashes, selected governance digest, and no expansion
+of paths, interfaces, or domains. Context compaction still requires reloading the relevant
+instructions because the receipt proves freshness, not model retention. Landing ignores the cache
+and independently recomputes reach from the exact candidate tree.
 
 ## 11. Work branches, parallel planning, and leases
 

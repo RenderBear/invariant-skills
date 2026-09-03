@@ -93,3 +93,11 @@ the current branch when work begins.
 
 Runtime is shared by linked worktrees through the primary worktree. It may be removed without
 changing repository meaning, although doing so discards active coordination state.
+
+Repeated turns may reuse a hash-validated brief receipt stored under Git's shared administrative
+directory at `<git-common-dir>/invariant/briefs/`. The receipt contains no authority and never
+replaces reach recomputation or exact-tree verification at landing.
+
+When accepted material is Markdown, prefer a focused design document. Anchored locators such as
+`architecture:docs/jobs.md#event-stream` route actual changed hunks to that section; path-only checks
+remain conservatively file-wide when no diff can prove a narrower change.

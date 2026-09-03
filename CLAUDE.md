@@ -15,6 +15,8 @@ landing. Read [SPEC.md](SPEC.md) for the design of record.
   review is always required when they apply.
 - Audits and observations are tracked evidence, not authority, and never enter governing digests.
 - Runtime contains only ignored plans and leases shared through the primary worktree.
+- Reusable brief receipts are disposable Git-local caches; hashes guard reuse and landing never
+  trusts them.
 - Plans validate DAG, reliance order, checks, and unordered claim disjointness mechanically.
 - Leases use Git ancestry and intersection for freshness; time only schedules liveness checks.
 - Landing validates the exact prospective tree and compare-and-swaps the target ref.

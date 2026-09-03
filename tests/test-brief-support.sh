@@ -16,6 +16,17 @@ mkdir -p "$fixture/.intent/audits" "$fixture/.intent/observations" "$fixture/.hi
   "$fixture/Upper Dir" "$fixture/packages/Fancy App" "$fixture/docs" "$fixture/src/ocr" \
   "$fixture/ui" "$fixture/schemas" "$fixture/checks"
 printf '# OCR architecture\n' >"$fixture/docs/architecture.md"
+cat >"$fixture/README.md" <<'EOF'
+# Example
+
+## Submit and observe a job
+
+Submit work and observe its events.
+
+## Local setup
+
+Run the local service.
+EOF
 printf '{}\n' >"$fixture/schemas/ocr.json"
 printf 'ocr\n' >"$fixture/src/ocr/engine.txt"
 printf 'ui\n' >"$fixture/ui/view.txt"
@@ -57,6 +68,20 @@ contracts:
     between: [ocr.orchestrator, ocr.external]
     surfaces: [interface:OcrEngine, repo:schemas/ocr.json]
     material: [architecture:docs/architecture.md]
+    verifies: [command:checks/verify.sh]
+  - id: ocr.submit-doc
+    assertion: The submission documentation preserves the public job flow.
+    authority: user:task:test#turn-1
+    between: [ocr.orchestrator, ocr.external]
+    surfaces: [interface:SubmitJob]
+    material: [architecture:README.md#submit-and-observe-a-job]
+    verifies: [command:checks/verify.sh]
+  - id: ocr.setup-doc
+    assertion: The setup documentation preserves the supported local workflow.
+    authority: user:task:test#turn-1
+    between: [ocr.orchestrator, ocr.external]
+    surfaces: [interface:LocalSetup]
+    material: [architecture:README.md#local-setup]
     verifies: [command:checks/verify.sh]
 EOF
 cat >"$fixture/.intent/CONSTRAINTS.yml" <<'EOF'
@@ -119,6 +144,28 @@ out=$(cd "$fixture" && sh "$brief" reach --paths docs/architecture.md --domain o
 printf '%s\n' "$out" | grep -q '^REACH: open$' || die "defining material change did not open governance"
 ok "defining material changes are open"
 
+sed 's/Submit work and observe its events/Submit work and stream its events/' "$fixture/README.md" >"$fixture/README.tmp"
+mv "$fixture/README.tmp" "$fixture/README.md"
+out=$(cd "$fixture" && sh "$brief" reach --paths README.md)
+printf '%s\n' "$out" | grep -q '^AFFECTED: contract:ocr.submit-doc (open)$' || die "changed Markdown section did not reach its contract"
+printf '%s\n' "$out" | grep -q 'contract:ocr.setup-doc' && die "unchanged Markdown section reached an unrelated contract"
+git -C "$fixture" checkout -q -- README.md
+ok "working-tree Markdown hunks route section-specific material"
+
+readme_base=$(git -C "$fixture" rev-parse HEAD)
+sed 's/Run the local service/Run the local development service/' "$fixture/README.md" >"$fixture/README.tmp"
+mv "$fixture/README.tmp" "$fixture/README.md"
+git -C "$fixture" commit -qam "change setup section"
+out=$(cd "$fixture" && sh "$brief" reach "$readme_base")
+printf '%s\n' "$out" | grep -q '^AFFECTED: contract:ocr.setup-doc (open)$' || die "committed Markdown section did not reach its contract"
+printf '%s\n' "$out" | grep -q 'contract:ocr.submit-doc' && die "candidate routing selected an unchanged Markdown section"
+ok "candidate-tree Markdown hunks route section-specific material"
+
+out=$(cd "$fixture" && sh "$brief" reach --paths README.md)
+printf '%s\n' "$out" | grep -q '^AFFECTED: contract:ocr.submit-doc (open)$' || die "hypothetical path check narrowed without diff evidence"
+printf '%s\n' "$out" | grep -q '^AFFECTED: contract:ocr.setup-doc (open)$' || die "hypothetical path check omitted anchored material"
+ok "path-only Markdown checks remain conservatively file-wide"
+
 digest=$(cd "$fixture" && sh "$brief" digest ocr.external | sed 's/^DIGEST: //')
 printf 'note\n' >"$fixture/.intent/observations/doc-location.yml"
 after_observation=$(cd "$fixture" && sh "$brief" digest ocr.external | sed 's/^DIGEST: //')
@@ -145,4 +192,4 @@ git -C "$fixture" commit -qam "$msg"
 (cd "$fixture" && sh "$brief" trailer HEAD >/dev/null) || die "honest derived scope/domain trailers failed"
 ok "commit trailers retain mechanical scope and semantic domain separately"
 
-echo "10 brief checks passed"
+echo "13 brief checks passed"
