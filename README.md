@@ -1,18 +1,23 @@
 # git-intent: Intent layer for Agentic Work
 
-git-intent gives coding agents a persistent, reviewable understanding of architectural intent,
-along with local coordination and safe Git convergence. It can be adopted incrementally; a
-repository does not need an upfront inventory or complete architecture model.
+git-intent uses Git's own mechanics to keep accepted architectural meaning durable, active coordination disposable, and both progressively informed by the repository itself.
 
-Work isolation and governance adoption are separate. Every repository mutation happens on a
-generated work branch, while durable governance is added only when future work must preserve a
-responsibility, relied-on promise, authoritative-state choice, operational behavior, or architectural
-restriction. A large internal refactor may need no record; a one-line compatibility change may.
+![Accepted intent persists above free-flowing local plans, with repository evidence progressively discovering what must be preserved.](.github/assets/domains-and-contracts.svg)
 
-![Durable governance and temporary planning remain separate, then converge through prospective landing into Git.](.github/assets/domains-and-contracts.svg)
+## Repository memory
 
-Domains, contracts, and constraints retain the small amount of architectural meaning agents must
-not lose. The complete model is documented in [SPEC.md](SPEC.md).
+Start sparse. As work reveals a stable responsibility, a relied-on boundary, or a design limit that
+future changes must respect, git-intent surfaces it for acceptance. Only that accepted meaning is
+tracked with the code. Promises that can be tested name executable checks; judgments that cannot be
+reduced to a command remain explicit review questions. The model grows from evidence instead of
+requiring an upfront architecture inventory.
+
+## Working coordination
+
+Plans, claims, and leases are ignored local state for the work in flight. They help agents divide,
+sequence, and safely converge branch work, then may disappear after landing. Git ancestry, tree
+identity, scoped checks, and atomic ref updates provide the hard guarantees without turning active
+planning into permanent repository meaning. The complete model is documented in [SPEC.md](SPEC.md).
 
 ## Install
 
