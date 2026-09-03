@@ -119,26 +119,17 @@ derived_ids_for_path() {
 # from package-root marker paths; area scopes come from repository topology.
 scopes_for_tree() {
   ref=$1
-  git ls-tree -r --name-only "$ref" -- 2>/dev/null | while IFS= read -r p; do
-    [ -n "$p" ] || continue
-    case "$p" in .intent|.intent/*) continue ;; esac
-    case "$p" in
-      */*)
-        top=${p%%/*}
-        if [ "${top#.}" != "$top" ]; then printf 'area.root\n'
-        else printf 'area.%s\n' "$(slug "$top")"
-        fi
-        name=${p##*/}
-        case "$name" in
-          package.json|pyproject.toml|Cargo.toml|go.mod)
-            dir=${p%/*}
-            printf 'pkg.%s\n' "$(slug "${dir##*/}")"
-            ;;
-        esac
-        ;;
-      *) printf 'area.root\n' ;;
-    esac
-  done | sort -u
+  git ls-tree -r --name-only "$ref" -- 2>/dev/null | awk -F/ '
+    function slug(value) { value=tolower(value); gsub(/[^a-z0-9_-]/,"-",value); return value }
+    $1==".intent" {next}
+    NF==1 {print "area.root"; next}
+    {
+      if(substr($1,1,1)==".") print "area.root"
+      else print "area." slug($1)
+      if($NF=="package.json" || $NF=="pyproject.toml" || $NF=="Cargo.toml" || $NF=="go.mod")
+        print "pkg." slug($(NF-1))
+    }
+  ' | sort -u
 }
 
 do_map() {

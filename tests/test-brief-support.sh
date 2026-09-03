@@ -12,11 +12,17 @@ git -C "$fixture" init -qb main
 git -C "$fixture" config user.name test
 git -C "$fixture" config user.email test@example.com
 git -C "$fixture" config commit.gpgsign false
-mkdir -p "$fixture/.intent/audits" "$fixture/.intent/observations" "$fixture/docs" "$fixture/src/ocr" "$fixture/ui" "$fixture/schemas" "$fixture/checks"
+mkdir -p "$fixture/.intent/audits" "$fixture/.intent/observations" "$fixture/.hidden" \
+  "$fixture/Upper Dir" "$fixture/packages/Fancy App" "$fixture/docs" "$fixture/src/ocr" \
+  "$fixture/ui" "$fixture/schemas" "$fixture/checks"
 printf '# OCR architecture\n' >"$fixture/docs/architecture.md"
 printf '{}\n' >"$fixture/schemas/ocr.json"
 printf 'ocr\n' >"$fixture/src/ocr/engine.txt"
 printf 'ui\n' >"$fixture/ui/view.txt"
+printf 'hidden\n' >"$fixture/.hidden/existing.txt"
+printf 'upper\n' >"$fixture/Upper Dir/existing.txt"
+printf '{}\n' >"$fixture/packages/Fancy App/package.json"
+printf '{}\n' >"$fixture/package.json"
 cat >"$fixture/checks/verify.sh" <<'EOF'
 #!/bin/sh
 exit 0
@@ -74,6 +80,15 @@ printf '%s\n' "$out" | grep -q '^TOPOLOGY: area.ui$' || die "derived scope missi
 printf '%s\n' "$out" | grep -q '^TOPOLOGY-NEW:' && die "existing UI topology was reported as new"
 ok "simple ungoverned UI work remains local"
 
+out=$(cd "$fixture" && sh "$brief" reach --paths .hidden/new.txt "Upper Dir/new.txt" \
+  "packages/Fancy App/new.txt" root-new.txt)
+printf '%s\n' "$out" | grep -q '^TOPOLOGY: area.root$' || die "root topology missing from committed tree edge case"
+printf '%s\n' "$out" | grep -q '^TOPOLOGY: area.upper-dir$' || die "uppercase and spaced area slug changed"
+printf '%s\n' "$out" | grep -q '^TOPOLOGY: area.packages$' || die "nested package area missing"
+printf '%s\n' "$out" | grep -q '^TOPOLOGY: pkg.fancy-app$' || die "nested package slug changed"
+printf '%s\n' "$out" | grep -q '^TOPOLOGY-NEW:' && die "committed tree edge-case topology was reported as new"
+ok "committed tree scopes preserve hidden, uppercase, spaced, package, and root-marker behavior"
+
 mkdir -p "$fixture/migrations"
 printf 'create table example(id integer);\n' >"$fixture/migrations/001.sql"
 out=$(cd "$fixture" && sh "$brief" reach --paths migrations/001.sql)
@@ -130,4 +145,4 @@ git -C "$fixture" commit -qam "$msg"
 (cd "$fixture" && sh "$brief" trailer HEAD >/dev/null) || die "honest derived scope/domain trailers failed"
 ok "commit trailers retain mechanical scope and semantic domain separately"
 
-echo "9 brief checks passed"
+echo "10 brief checks passed"
