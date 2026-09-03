@@ -245,6 +245,22 @@ printf '%s\n' "$out" | grep -q '^LANDED:' || die "fresh matching lease did not l
 [ -f "$runtime/plans/bundle.yml" ] || die "incomplete plan was removed"
 ok "matching coordinated lease is authenticated and released"
 
+printf 'bypass\n' >"$fixture/ui/bypass.txt"
+git -C "$fixture" add ui/bypass.txt
+git -C "$fixture" commit -qm "plain integration commit"
+start_branch intent/work/after-bypass
+printf 'after bypass\n' >"$fixture/ui/after-bypass.txt"
+finish_branch "work after bypass"
+old=$(git -C "$fixture" rev-parse HEAD)
+if out=$(cd "$fixture" && sh "$land" merge intent/work/after-bypass "reject bypass history" \
+    --unit after-bypass --scope area.ui --boundary-review no-record 2>&1); then
+  die "landing accepted an integration commit without Intent-Boundary"
+fi
+printf '%s\n' "$out" | grep -q 'landing history commit .* is missing Intent-Boundary' ||
+  die "landing did not report the missing first-parent boundary disposition"
+[ "$(git -C "$fixture" rev-parse HEAD)" = "$old" ] || die "history validation failure moved target"
+ok "landing rejects first-parent integration commits without a boundary disposition"
+
 unborn="$fixture/unborn"
 mkdir -p "$unborn"
 git -C "$unborn" init -qb main
@@ -257,4 +273,4 @@ out=$(cd "$unborn" && sh "$land" direct "initial commit" --unit initial --scope 
 printf '%s\n' "$out" | grep -q '^LANDED:' || die "unborn direct landing failed"
 ok "direct landing remains available only for an unborn integration branch"
 
-echo "9 landing policy checks passed"
+echo "10 landing policy checks passed"

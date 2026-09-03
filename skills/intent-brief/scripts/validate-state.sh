@@ -6,7 +6,11 @@
 set -u
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-case "${1:-}" in --landing|--audit) shift ;; esac
+landing_mode=0
+case "${1:-}" in
+  --landing) landing_mode=1; shift ;;
+  --audit) shift ;;
+esac
 
 tmp_root=$(mktemp -d "${TMPDIR:-/tmp}/git-intent-state.XXXXXX") || exit 2
 domains="$tmp_root/domains"
@@ -25,12 +29,51 @@ fail() {
   printf '%s\n' "$*" >>"$violations"
 }
 
+# The first first-parent commit carrying Intent-Boundary is the adoption
+# anchor. Pre-adoption history remains valid, but every integration commit from
+# that anchor through the prospective landing must preserve a disposition.
+validate_landing_history() {
+  history="$tmp_root/landing-history"
+  errors="$tmp_root/landing-history-errors"
+  if ! git log --first-parent --reverse \
+      --format='%H%x1c%(trailers:key=Intent-Boundary,valueonly,separator=%x1d)%x1c%(trailers:key=Intent-Governance,valueonly,separator=%x1d)' \
+      HEAD >"$history" 2>/dev/null; then
+    fail "landing history HEAD does not resolve"
+    return
+  fi
+  awk '
+    BEGIN { field=sprintf("%c",28); multi=sprintf("%c",29); FS=field }
+    {
+      commit=$1; boundary=$2; governance=$3
+      if(!adopted && boundary!="") adopted=1
+      if(!adopted) next
+      label="landing history commit " substr(commit,1,12)
+      if(boundary=="") { print label " is missing Intent-Boundary"; next }
+      if(index(boundary,multi)) { print label " has multiple Intent-Boundary trailers"; next }
+      if(boundary!="no-record" && boundary!="recorded" && boundary!~/^audit:[a-zA-Z0-9._-]+$/) {
+        print label " has an invalid Intent-Boundary disposition"
+        next
+      }
+      if(boundary=="recorded" && governance=="")
+        print label " uses Intent-Boundary recorded without Intent-Governance"
+    }
+  ' "$history" >"$errors"
+  while IFS= read -r message; do [ -z "$message" ] || fail "$message"; done <"$errors"
+}
+
+[ "$landing_mode" -eq 0 ] || validate_landing_history
+
 git ls-files --cached --others --exclude-standard -- '.intent/' 2>/dev/null |
   grep '\.ya\{0,1\}ml$' | sort -u >"$files" || true
 for named do printf '%s\n' "$named" >>"$files"; done
 sort -u "$files" -o "$files"
 
 if [ ! -s "$files" ]; then
+  if [ -s "$violations" ]; then
+    count=$(wc -l <"$violations" | tr -d ' ')
+    echo "$count intent state violation(s)"
+    exit 1
+  fi
   echo "no intent state — nothing to validate"
   exit 0
 fi

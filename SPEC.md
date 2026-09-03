@@ -306,6 +306,9 @@ an unborn integration branch, where no branch can yet be based on a commit. A na
 is not a boundary disposition: the caller must state that the durable-meaning test was negative,
 identify the concluding audit, or name the accepted governance that owns the meaning. Landing
 preserves that result in `Intent-Boundary` and `Intent-Governance` commit trailers.
+The oldest first-parent commit carrying `Intent-Boundary` is the integration history's adoption
+anchor. Every first-parent commit from that anchor onward must carry exactly one valid boundary
+disposition; earlier repository history remains outside this invariant.
 
 Any failure before the ref update leaves the target unchanged. If another landing wins the race,
 compare-and-swap fails rather than overwriting it.
