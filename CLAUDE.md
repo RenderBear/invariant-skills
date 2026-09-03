@@ -7,8 +7,6 @@ landing. Read [SPEC.md](SPEC.md) for the design of record.
 
 ## Core invariants
 
-- Brief read-only, then create `intent/work/<uuid>` before every repository mutation and merge-land
-  it; direct landing exists only for an unborn integration branch.
 - Branch isolation and governance adoption are independent decisions.
 - Missing governance never initializes state or blocks ordinary work.
 - Domains are semantic responsibility clusters, not filesystem boundaries.

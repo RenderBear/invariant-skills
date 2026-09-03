@@ -5,7 +5,7 @@ git-intent uses Git's own mechanics to keep accepted architectural meaning durab
 - **Governance:** Stable responsibilities, relied-on promises, and architectural limits are discovered progressively, accepted explicitly, tracked with the repository, and verified mechanically where possible.
 - **Planning:** Plans, claims, and leases coordinate active branch work locally, then may disappear after the work safely converges.
 
-![Durable repository intent sits above local work and Git as a causal substrate, connected by progressive discovery and mechanical verification.](.github/assets/domains-and-contracts.svg)
+![A read-only brief leads to an isolated work branch, an exact candidate tree, and verification against that tree before a compare-and-swap advances the integration ref. Tracked governance sits inside Git and feeds both the brief and verification; the ignored planning runtime sits outside it.](.github/assets/lifecycle.svg)
 
 The complete model is documented in [SPEC.md](SPEC.md).
 
