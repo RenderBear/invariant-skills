@@ -15,11 +15,13 @@ an unrelated integration advance does not by itself require a new brief or branc
 Missing governance is an observed posture, not a blocker or initialization trigger. Infer semantic
 domains from the goal, behavior, and architecture; never equate directories with domains.
 
-Accepted governance lives in `.intent/`: domains name semantic responsibilities, contracts protect
-executable promises between domains, and constraints preserve architectural shape with optional
-checks. Tracked audits and observations are non-authoritative evidence and do not enter governing
-digests. Architecture material stays in repository-native ADRs, diagrams, schemas, and design docs,
-referenced directly by governing records.
+Domains in `.intent/DOMAINS.yml` name semantic responsibilities and point to relevant anchored
+architecture and contracts. Architecture Markdown is canonical for rationale and non-executable
+decisions; contracts protect executable promises between domains. Pointers establish relevance, not
+truth. Tracked audits and `.intent/discoveries/` are non-authoritative evidence and do not enter
+governing digests. Pending or causally suspect discoveries warn unless current work actually depends
+on the unresolved decision. Do not create new constraint or observation records; migrate legacy ones
+gradually.
 
 Use `intent-coordinate` only for genuinely parallel, independently owned, or handoff-sensitive
 work. Its ignored `.intent/runtime/` plan and leases are shared across linked worktrees. Validate
@@ -41,9 +43,9 @@ attests any other uncovered integration commits; do not rewrite published histor
 Use `intent-audit scope` when that durable meaning is uncertain or discovery is explicitly requested;
 clear authority may flow directly to `intent-record`. A full audit requires an explicit
 repository-wide request. Audit writes causal, tracked, non-authoritative evidence. Accepted findings
-flow to `intent-record`, which updates defining material and the smallest existing or new domains,
-contracts, or constraints before re-briefing. Missing verification is `VERIFIER REQUIRED`, never a
-reason to omit a required contract.
+flow to `intent-record`, which updates canonical architecture and the smallest existing or new
+domains or contracts, then marks the discovery promoted in the same change. Missing verification is
+`VERIFIER REQUIRED`, never a reason to omit a required contract.
 
 Configuration is version 1. `resolution: assisted | auto` selects who resolves consequential
 semantic ambiguity. `integration_branch` is optional; otherwise capture the current branch at
@@ -51,7 +53,7 @@ intake. No configuration authorizes external effects.
 
 Use `intent-land` to build and inspect the exact prospective tree. Treat new mechanical topology as
 a boundary-review signal, not inferred governance. Require the boundary disposition, review every
-affected semantic constraint, run all affected verifiers and repository checks, authenticate
+affected architecture decision, run all affected verifiers and repository checks, authenticate
 coordinated leases, validate trailers, and only then compare-and-swap the integration ref. Failure
 leaves the target unchanged. Push, deploy, publication, destructive cleanup, and other external
 effects require explicit request authority.

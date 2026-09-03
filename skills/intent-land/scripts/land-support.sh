@@ -9,7 +9,7 @@ usage() {
 usage:
   land-support.sh direct <subject> --unit <id>... --scope <scope>...
                   --paths <path>... [--domain <id>]... [--interface <name>]...
-                  [--governance <ref>]... [--reviewed constraint:<id>]...
+                  [--governance <ref>]... [--reviewed architecture:<path>#<id>]...
                   --boundary-review <no-record|audit:id|recorded>
                   [--target <branch>] [--check <locator>]...
                   [--allow-open] [--plan <id>]
@@ -18,7 +18,7 @@ usage:
                   [--check <locator>]...
   land-support.sh merge <branch> <subject> --unit <id>... --scope <scope>...
                   [--domain <id>]... [--interface <name>]...
-                  [--governance <ref>]... [--reviewed constraint:<id>]...
+                  [--governance <ref>]... [--reviewed architecture:<path>#<id>]...
                   --boundary-review <no-record|audit:id|recorded>
                   [--target <branch>] [--check <locator>]...
                   [--allow-open] [--plan <id>]
@@ -27,8 +27,8 @@ Check locators are executable `command:path` wrappers or supported `test:`
 locators. `--allow-open` states that intent-land has already resolved the
 authority gate for an open or gated governance transition. `no-record` states
 that the durable-meaning review found no new governance to adopt. `audit:id`
-names a fresh scoped audit with only no-action or observation findings.
-`recorded` requires the owning domain, contract, or constraint references via
+names a fresh scoped audit with only no-action or discovery findings.
+`recorded` requires the owning domain, contract, or architecture references via
 `--governance`.
 EOF
   exit 2
@@ -243,6 +243,9 @@ sh "$brief_dir/brief-support.sh" message "$subject" $message_args >"$tmp/message
 printf 'Intent-Boundary: %s\n' "$boundary_review" >>"$tmp/message"
 [ -z "$covers" ] || printf 'Intent-Covers: %s\n' "$covers" >>"$tmp/message"
 for ref in $governance; do printf 'Intent-Governance: %s\n' "$ref" >>"$tmp/message"; done
+for ref in $reviewed; do
+  case "$ref" in architecture:*) printf 'Intent-Architecture: %s\n' "$ref" >>"$tmp/message" ;; esac
+done
 
 if [ "$mode" = direct ]; then
   index="$tmp/index"
@@ -389,6 +392,14 @@ governance_exists() {
     domain) file=.intent/DOMAINS.yml ;;
     contract) file=.intent/CONTRACTS.yml ;;
     constraint) file=.intent/CONSTRAINTS.yml ;;
+    architecture)
+      path=${ref#architecture:}; path=${path%%#*}
+      [ -f "$verify_dir/$path" ] || return 1
+      for index_file in "$verify_dir/.intent/DOMAINS.yml" "$verify_dir/.intent/CONTRACTS.yml"; do
+        [ -f "$index_file" ] && grep -F "$ref" "$index_file" >/dev/null 2>&1 && return 0
+      done
+      return 1
+      ;;
     *) return 1 ;;
   esac
   [ -f "$verify_dir/$file" ] &&
@@ -511,14 +522,14 @@ printf '%s\n' "$verifier_rows" | sed -n 's/^VERIFY: [^ ]* //p' | while IFS= read
   esac
 done
 
-printf '%s\n' "$verifier_rows" | sed -n 's/^REVIEW: \([^ ]*\) .*/\1/p' | while IFS= read -r constraint; do
+printf '%s\n' "$verifier_rows" | sed -n 's/^REVIEW: \([^ ]*\) .*/\1/p' | while IFS= read -r decision; do
   found=0
-  for accepted in $reviewed; do [ "$accepted" = "$constraint" ] && found=1; done
+  for accepted in $reviewed; do [ "$accepted" = "$decision" ] && found=1; done
   [ "$found" -eq 1 ] || {
-    echo "Invariant: affected semantic $constraint requires --reviewed $constraint after prospective-tree review" >&2
+    echo "Invariant: affected semantic $decision requires --reviewed $decision after prospective-tree review" >&2
     exit 1
   }
-  echo "REVIEW: accepted — $constraint"
+  echo "REVIEW: accepted — $decision"
 done
 
 printf '%s\n' "$checks" | sed '/^$/d' | while IFS= read -r locator; do

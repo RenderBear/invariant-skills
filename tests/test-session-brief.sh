@@ -18,8 +18,14 @@ git -C "$fixture" init -qb main
 git -C "$fixture" config user.name test
 git -C "$fixture" config user.email test@example.com
 git -C "$fixture" config commit.gpgsign false
-mkdir -p "$fixture/.intent/observations" "$fixture/docs" "$fixture/src"
-printf '# Architecture\n' >"$fixture/docs/architecture.md"
+mkdir -p "$fixture/.intent/discoveries" "$fixture/docs" "$fixture/src"
+cat >"$fixture/docs/architecture.md" <<'EOF'
+# Architecture
+
+## Source boundary
+
+Source behavior remains isolated.
+EOF
 printf 'seed\n' >"$fixture/src/a file.py"
 cat >"$fixture/.intent/config.yml" <<'EOF'
 version: 1
@@ -30,18 +36,9 @@ cat >"$fixture/.intent/DOMAINS.yml" <<'EOF'
 version: 1
 domains:
   - id: source
-    description: Owns source behavior.
+    responsibility: Owns source behavior.
     authority: user:task:test#turn-1
-    material: [architecture:docs/architecture.md]
-EOF
-cat >"$fixture/.intent/CONSTRAINTS.yml" <<'EOF'
-version: 1
-constraints:
-  - id: source.boundary
-    assertion: Source behavior remains isolated.
-    authority: user:task:test#turn-1
-    applies_to: [source]
-    material: [architecture:docs/architecture.md]
+    architecture: [architecture:docs/architecture.md#source-boundary]
 EOF
 git -C "$fixture" add -A
 git -C "$fixture" commit -qm seed
@@ -85,24 +82,27 @@ fi
 printf '%s\n' "$out" | grep -q '^STALE: path scope expanded to src/new.py$' || die "scope expansion lacks a precise reason"
 ok "scope expansion invalidates reuse"
 
-cat >"$fixture/.intent/observations/layout.yml" <<'EOF'
+cat >"$fixture/.intent/discoveries/layout.yml" <<EOF
 version: 1
 id: layout
-ground: seed
+status: pending
+ground: $(git -C "$fixture" rev-parse HEAD)
+tree: $(git -C "$fixture" rev-parse 'HEAD^{tree}')
+domains: [source]
 statement: Source currently has one file.
 evidence: [repo:src]
-relates_to: [domain:source]
+candidates: [architecture]
 EOF
 (cd "$fixture" && sh "$session_brief" check task-1 --goal "Change source safely" >/dev/null) || die "non-authoritative evidence invalidated governance"
-ok "non-authoritative evidence stays outside brief freshness"
+ok "non-authoritative discoveries stay outside brief freshness"
 
-cp "$fixture/.intent/CONSTRAINTS.yml" "$fixture/.intent/CONSTRAINTS.saved"
-sed 's/remains isolated/remains strictly isolated/' "$fixture/.intent/CONSTRAINTS.saved" >"$fixture/.intent/CONSTRAINTS.yml"
+cp "$fixture/.intent/DOMAINS.yml" "$fixture/.intent/DOMAINS.saved"
+sed 's/Owns source behavior/Owns isolated source behavior/' "$fixture/.intent/DOMAINS.saved" >"$fixture/.intent/DOMAINS.yml"
 if out=$(cd "$fixture" && sh "$session_brief" check task-1 --goal "Change source safely" 2>&1); then
   die "changed selected governance reused a stale brief"
 fi
 printf '%s\n' "$out" | grep -q '^STALE: selected governance changed$' || die "governance staleness lacks a precise reason"
-mv "$fixture/.intent/CONSTRAINTS.saved" "$fixture/.intent/CONSTRAINTS.yml"
+mv "$fixture/.intent/DOMAINS.saved" "$fixture/.intent/DOMAINS.yml"
 ok "selected governance digest guards semantic reuse"
 
 git -C "$fixture" worktree add -q -b linked "$linked"
@@ -123,7 +123,7 @@ git -C "$fixture" commit -qam "change governing material"
 if out=$(cd "$linked" && sh "$session_brief" check task-1 --goal "Change source safely" 2>&1); then
   die "changed governing material reused the prior brief"
 fi
-printf '%s\n' "$out" | grep -q '^STALE: governing material changed — architecture:docs/architecture.md$' ||
+printf '%s\n' "$out" | grep -q '^STALE: governing material changed — architecture:docs/architecture.md#source-boundary$' ||
   die "governing-material staleness lacks a precise reason"
 ok "governing material changes refresh semantic context"
 

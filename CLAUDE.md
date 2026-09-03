@@ -9,11 +9,15 @@ landing. Read [SPEC.md](SPEC.md) for the design of record.
 
 - Branch isolation and governance adoption are independent decisions.
 - Missing governance never initializes state or blocks ordinary work.
-- Domains are semantic responsibility clusters, not filesystem boundaries.
+- Domains are semantic responsibility indexes with architecture and contract pointers, not
+  filesystem boundaries.
 - Contracts are relied-on cross-domain promises with executable verification.
-- Constraints are accepted permitted-shape assertions; verification is optional and semantic
-  review is always required when they apply.
-- Audits and observations are tracked evidence, not authority, and never enter governing digests.
+- Anchored architecture Markdown is canonical for rationale and non-executable decisions; applicable
+  decisions always require semantic review.
+- Discoveries and audits are tracked evidence, not authority, and never enter governing digests.
+- Pending or causally suspect discoveries warn by default and block only when current work depends
+  on the unresolved decision.
+- Do not create new constraints or observations. Existing files remain readable for migration.
 - Runtime contains only ignored plans and leases shared through the primary worktree.
 - Reusable brief receipts are disposable Git-local caches; hashes guard reuse and landing never
   trusts them. An advanced integration head alone does not invalidate a receipt.
@@ -36,8 +40,8 @@ landing. Read [SPEC.md](SPEC.md) for the design of record.
 |---|---|
 | `intent-brief` | nothing |
 | `intent-coordinate` | ignored `.intent/runtime/` plans and leases |
-| `intent-audit` | tracked `.intent/audits/` and durable non-authoritative observations |
-| `intent-record` | domains, contracts, constraints, and defining architecture material |
+| `intent-audit` | tracked `.intent/audits/` and worthwhile non-authoritative discoveries |
+| `intent-record` | domains, contracts, canonical architecture, and discovery lifecycle updates |
 | `intent-land` | local commits, integration refs, and completed runtime cleanup |
 
 ## Configuration

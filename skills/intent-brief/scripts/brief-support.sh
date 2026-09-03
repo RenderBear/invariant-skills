@@ -1,7 +1,8 @@
 #!/bin/sh
 # Deterministic brief mechanics: derived path addressing, domain-governance
-# projection, causal digest freshness, verifier selection, and trailer honesty.
-# Choosing semantic domains and interpreting constraints remain model work.
+# projection, causal digest freshness, discovery warnings, verifier selection,
+# and trailer honesty. Choosing semantic domains and interpreting architecture
+# remain model work.
 
 set -u
 
@@ -11,17 +12,17 @@ usage:
   brief-support.sh map
   brief-support.sh rows <domain> [<domain>...]
   brief-support.sh digest [--at <commit>] <domain> [<domain>...]
-  brief-support.sh observe <expected-digest> <domain> [<domain>...]
+  brief-support.sh check-digest <expected-digest> <domain> [<domain>...]
   brief-support.sh reach [<base-ref>|--root|--history <base-ref>] [--paths <path>...]
                          [--domain <id>]... [--interface <name>]...
   brief-support.sh verifiers [<base-ref>|--root|--history <base-ref>] [--paths <path>...]
                              [--domain <id>]... [--interface <name>]...
       Reach and verifier selection combine mechanical path/interface
       intersections with semantic domains selected by the caller. Contracts
-      are executable boundary promises. Constraints always emit REVIEW and
-      may additionally emit executable VERIFY rows.
+      are executable boundary promises. Architecture always emits REVIEW;
+      legacy constraints remain supported during migration.
   brief-support.sh material-changes <base-ref> <tip-ref> <domain>...
-      Report selected defining-material locators changed between two commits.
+      Report selected architecture locators changed between two commits.
   brief-support.sh message <subject> --unit <id>... --scope <derived-scope>...
                            [--domain <id>...] [--plan <plan-id>]
   brief-support.sh trailer <commit>
@@ -60,10 +61,19 @@ domain_rows() {
   governance_content "$domains_file" |
   awk '
     function val(line){sub(/^[^:]*: */,"",line); sub(/[[:space:]]+#.*$/, "", line); gsub(/\|/,"%7C",line); return line}
-    function emit(){if(id!="") print id "|" parent "|" description "|" material "|" authority}
-    /^  - id:/ {emit(); id=val($0); parent=description=material=authority=""; next}
+    function emit(){
+      if(id!="") {
+        if(responsibility=="") responsibility=description
+        if(architecture=="") architecture=material
+        print id "|" parent "|" responsibility "|" architecture "|" contracts "|" authority
+      }
+    }
+    /^  - id:/ {emit(); id=val($0); parent=responsibility=description=architecture=contracts=material=authority=""; next}
     id!="" && /^    parent:/ {parent=val($0); next}
+    id!="" && /^    responsibility:/ {responsibility=val($0); next}
     id!="" && /^    description:/ {description=val($0); next}
+    id!="" && /^    architecture:/ {architecture=val($0); next}
+    id!="" && /^    contracts:/ {contracts=val($0); next}
     id!="" && /^    material:/ {material=val($0); next}
     id!="" && /^    authority:/ {authority=val($0); next}
     END{emit()}
@@ -74,16 +84,42 @@ contract_rows() {
   governance_content "$contracts_file" |
   awk '
     function val(line){sub(/^[^:]*: */,"",line); sub(/[[:space:]]+#.*$/, "", line); gsub(/\|/,"%7C",line); return line}
-    function emit(){if(id!="") print id "|" between "|" surfaces "|" material "|" verifies "|" assertion "|" authority}
-    /^  - id:/ {emit(); id=val($0); between=surfaces=material=verifies=assertion=authority=""; next}
+    function emit(){
+      if(id!="") {
+        if(architecture=="") architecture=material
+        print id "|" between "|" surfaces "|" architecture "|" verifies "|" assertion "|" authority
+      }
+    }
+    /^  - id:/ {emit(); id=val($0); between=surfaces=architecture=material=verifies=assertion=authority=""; next}
     id!="" && /^    between:/ {between=val($0); next}
     id!="" && /^    surfaces:/ {surfaces=val($0); next}
+    id!="" && /^    architecture:/ {architecture=val($0); next}
     id!="" && /^    material:/ {material=val($0); next}
     id!="" && /^    verifies:/ {verifies=val($0); next}
     id!="" && /^    assertion:/ {assertion=val($0); next}
     id!="" && /^    authority:/ {authority=val($0); next}
     END{emit()}
   '
+}
+
+discovery_rows() {
+  for file in .intent/discoveries/*.yml; do
+    [ -f "$file" ] || continue
+    awk -v file="$file" '
+      function val(line){sub(/^[^:]*: */,"",line); sub(/[[:space:]]+#.*$/, "", line); gsub(/\|/,"%7C",line); return line}
+      /^[a-z_]+:/ {
+        key=$0; sub(/:.*/,"",key); value=val($0)
+        if(key=="id") id=value
+        else if(key=="status") status=value
+        else if(key=="ground") ground=value
+        else if(key=="tree") tree=value
+        else if(key=="domains") domains=value
+        else if(key=="statement") statement=value
+        else if(key=="evidence") evidence=value
+      }
+      END {if(id!="") print id "|" status "|" ground "|" tree "|" domains "|" statement "|" evidence "|" file}
+    ' "$file"
+  done
 }
 
 constraint_rows() {
@@ -318,7 +354,7 @@ markdown_section_hit() {
 path_hits() {
   wanted=$1; locators=$2; base=${3:-}; scratch=${4:-}; tip=${5:-}
   for locator in $(normalise_refs "$locators"); do
-    case "$locator" in task:*|url:*|interface:*) continue ;; esac
+    case "$locator" in task:*|url:*|interface:*|commit:*) continue ;; esac
     path=${locator#*:}
     anchor=""
     case "$path" in *#*) anchor=${path#*#}; path=${path%%#*} ;; esac
@@ -355,6 +391,37 @@ domain_hits() {
   return 1
 }
 
+domain_contract_hits() {
+  expanded=$1; wanted=$2
+  domain_rows | while IFS='|' read -r id parent responsibility architecture contracts authority; do
+    grep -qxF "$id" "$expanded" || continue
+    normalise_refs "$contracts"
+  done | grep -qxF "$wanted"
+}
+
+architecture_refs() {
+  for locator in $(normalise_refs "$1"); do
+    case "$locator" in architecture:*) printf '%s\n' "$locator" ;; esac
+  done
+}
+
+first_path_intersection() {
+  wanted=$1; locators=$2
+  for locator in $(normalise_refs "$locators"); do
+    case "$locator" in repo:*|architecture:*|adr:*|schema:*) ;;
+      *) continue ;;
+    esac
+    path=${locator#*:}; path=${path%%#*}; path=${path%%::*}
+    while IFS= read -r candidate_path; do
+      [ -n "$candidate_path" ] || continue
+      if [ "$candidate_path" = "$path" ]; then printf '%s\n' "$candidate_path"; return 0; fi
+      case "$candidate_path" in "$path"/*) printf '%s\n' "$candidate_path"; return 0 ;; esac
+      case "$path" in "$candidate_path"/*) printf '%s\n' "$candidate_path"; return 0 ;; esac
+    done <"$wanted"
+  done
+  return 1
+}
+
 governance_change_class() {
   paths=$1; base=$2
   if ! grep -Eq '^\.intent/(DOMAINS|CONTRACTS|CONSTRAINTS)\.yml$' "$paths"; then echo none; return; fi
@@ -375,19 +442,71 @@ governance_change_class() {
 
 compile_affected() {
   paths=$1; selected=$2; interfaces=$3; out=$4; base=$5; scratch=$6
-  : >"$out"
-  contract_rows | while IFS='|' read -r id refs surfaces material verifies assertion authority; do
+  raw="$scratch/affected-raw"
+  : >"$raw"
+  contract_rows | while IFS='|' read -r id refs surfaces architecture verifies assertion authority; do
     level=""
-    if domain_hits "$selected" "$refs" || path_hits "$paths" "$surfaces" "$base" "$scratch" || interface_hits "$interfaces" "$surfaces"; then level=bounded; fi
-    if path_hits "$paths" "$material" "$base" "$scratch" || path_hits "$paths" "$verifies" "$base" "$scratch"; then level=open; fi
+    if domain_hits "$selected" "$refs" || domain_contract_hits "$selected" "$id" || path_hits "$paths" "$surfaces" "$base" "$scratch" || interface_hits "$interfaces" "$surfaces"; then level=bounded; fi
+    if path_hits "$paths" "$architecture" "$base" "$scratch" || path_hits "$paths" "$verifies" "$base" "$scratch"; then level=open; fi
     [ -z "$level" ] || printf 'contract|%s|%s|%s|%s\n' "$id" "$level" "$verifies" "$assertion"
-  done >>"$out"
+    [ -z "$level" ] || architecture_refs "$architecture" | while IFS= read -r locator; do
+      [ -n "$locator" ] || continue
+      architecture_level=$level
+      path_hits "$paths" "$locator" "$base" "$scratch" && architecture_level=open
+      printf 'architecture|%s|%s||Review the referenced architectural decision.\n' "${locator#architecture:}" "$architecture_level"
+    done
+  done >>"$raw"
+  domain_rows | while IFS='|' read -r id parent responsibility architecture contracts authority; do
+    selected_domain=0
+    grep -qxF "$id" "$selected" && selected_domain=1
+    architecture_refs "$architecture" | while IFS= read -r locator; do
+      [ -n "$locator" ] || continue
+      level=""
+      [ "$selected_domain" -eq 0 ] || level=bounded
+      path_hits "$paths" "$locator" "$base" "$scratch" && level=open
+      [ -z "$level" ] || printf 'architecture|%s|%s||Review the referenced architectural decision.\n' "${locator#architecture:}" "$level"
+    done
+  done >>"$raw"
   constraint_rows | while IFS='|' read -r id refs surfaces material verifies assertion authority; do
     level=""
     if domain_hits "$selected" "$refs" || path_hits "$paths" "$surfaces" "$base" "$scratch" || interface_hits "$interfaces" "$surfaces"; then level=bounded; fi
     if path_hits "$paths" "$material" "$base" "$scratch" || path_hits "$paths" "$verifies" "$base" "$scratch"; then level=open; fi
     [ -z "$level" ] || printf 'constraint|%s|%s|%s|%s\n' "$id" "$level" "$verifies" "$assertion"
-  done >>"$out"
+  done >>"$raw"
+  awk -F'|' '
+    {
+      key=$1 "|" $2
+      if(!(key in line)) order[++count]=key
+      if(!(key in line) || $3=="open") line[key]=$0
+    }
+    END {for(i=1;i<=count;i++) print line[order[i]]}
+  ' "$raw" | LC_ALL=C sort >"$out"
+}
+
+emit_discoveries() {
+  paths=$1; selected=$2; scratch=$3
+  discovery_rows | while IFS='|' read -r id status ground tree domains statement evidence file; do
+    case "$status" in pending|stale) ;; *) continue ;; esac
+    if ! domain_hits "$selected" "$domains" && ! path_hits "$paths" "$evidence" "" "$scratch"; then continue; fi
+    state=$status
+    detail=""
+    if [ "$status" = pending ]; then
+      head=$(git rev-parse -q --verify HEAD 2>/dev/null || true)
+      if [ "$ground" != unborn ] && { [ -z "$head" ] || ! git merge-base --is-ancestor "$ground" "$head" >/dev/null 2>&1; }; then
+        state=diverged
+      elif [ "$tree" != empty ] && [ -n "$head" ]; then
+        changed_file="$scratch/discovery-$id-changed"
+        git diff --name-only "$tree" "$head^{tree}" -- 2>/dev/null >"$changed_file" || : >"$changed_file"
+        if path_hits "$changed_file" "$evidence" "" "$scratch"; then
+          state=needs-review
+          detail=$(first_path_intersection "$changed_file" "$evidence" || true)
+        fi
+      fi
+    fi
+    if [ -n "$detail" ]; then printf 'DISCOVERY: %s (%s — changed evidence %s)\n' "$id" "$state" "$detail"
+    else printf 'DISCOVERY: %s (%s)\n' "$id" "$state"
+    fi
+  done
 }
 
 with_inputs() {
@@ -404,7 +523,7 @@ with_inputs() {
 
   if [ "$mode" = verifiers ]; then
     while IFS='|' read -r kind id level verifies assertion; do
-      if [ "$kind" = constraint ]; then printf 'REVIEW: constraint:%s %s\n' "$id" "$assertion"; fi
+      case "$kind" in architecture|constraint) printf 'REVIEW: %s:%s %s\n' "$kind" "$id" "$assertion" ;; esac
       for verifier in $(normalise_refs "$verifies"); do printf 'VERIFY: %s:%s %s\n' "$kind" "$id" "$verifier"; done
     done <"$affected"
     return
@@ -427,8 +546,9 @@ with_inputs() {
   fi
   while IFS='|' read -r kind id level verifies assertion; do
     printf 'AFFECTED: %s:%s (%s)\n' "$kind" "$id" "$level"
-    [ "$kind" != constraint ] || printf 'REVIEW: constraint:%s %s\n' "$id" "$assertion"
+    case "$kind" in architecture|constraint) printf 'REVIEW: %s:%s %s\n' "$kind" "$id" "$assertion" ;; esac
   done <"$affected"
+  emit_discoveries "$paths" "$expanded" "$section_scratch"
 
   structural=$(governance_change_class "$paths" "$base")
   case "$structural" in
@@ -449,11 +569,13 @@ governing_content() {
   expanded=$(mktemp "${TMPDIR:-/tmp}/invariant-expanded.XXXXXX") || { rm -f "$selected"; exit 2; }
   : >"$selected"; for domain do printf '%s\n' "$domain" >>"$selected"; done; sort -u "$selected" -o "$selected"
   expand_domains "$selected" "$expanded" || { rm -f "$selected" "$expanded"; return 2; }
-  domain_rows | while IFS='|' read -r id parent description material authority; do
-    grep -qxF "$id" "$expanded" && printf 'DOMAIN|%s|%s|%s|%s|%s\n' "$id" "$parent" "$description" "$material" "$authority"
+  domain_rows | while IFS='|' read -r id parent responsibility architecture contracts authority; do
+    grep -qxF "$id" "$expanded" && printf 'DOMAIN|%s|%s|%s|%s|%s|%s\n' "$id" "$parent" "$responsibility" "$architecture" "$contracts" "$authority"
   done
-  contract_rows | while IFS='|' read -r id refs surfaces material verifies assertion authority; do
-    domain_hits "$expanded" "$refs" && printf 'CONTRACT|%s|%s|%s|%s|%s|%s|%s\n' "$id" "$refs" "$surfaces" "$material" "$verifies" "$assertion" "$authority"
+  contract_rows | while IFS='|' read -r id refs surfaces architecture verifies assertion authority; do
+    if domain_hits "$expanded" "$refs" || domain_contract_hits "$expanded" "$id"; then
+      printf 'CONTRACT|%s|%s|%s|%s|%s|%s|%s\n' "$id" "$refs" "$surfaces" "$architecture" "$verifies" "$assertion" "$authority"
+    fi
   done
   constraint_rows | while IFS='|' read -r id refs surfaces material verifies assertion authority; do
     domain_hits "$expanded" "$refs" && printf 'CONSTRAINT|%s|%s|%s|%s|%s|%s|%s\n' "$id" "$refs" "$surfaces" "$material" "$verifies" "$assertion" "$authority"
@@ -463,12 +585,24 @@ governing_content() {
 
 do_rows() {
   content=$(governing_content "$@") || exit 2
-  printf '%s\n' "$content" | awk -F'|' '
-    $1=="DOMAIN" {print "DOMAIN " $2 " — " $4; n++}
-    $1=="CONTRACT" {print "CONTRACT " $2 " — " $7; n++}
-    $1=="CONSTRAINT" {print "CONSTRAINT " $2 " — " $7; n++}
-    END {print "ROWS: " n+0}
-  '
+  rows=$(mktemp "${TMPDIR:-/tmp}/invariant-rows.XXXXXX") || exit 2
+  : >"$rows"
+  printf '%s\n' "$content" | while IFS='|' read -r kind id refs value architecture contracts assertion authority; do
+    case "$kind" in
+      DOMAIN)
+        printf 'DOMAIN %s — %s\n' "$id" "$value"
+        architecture_refs "$architecture" | while IFS= read -r locator; do printf 'ARCHITECTURE %s\n' "$locator"; done
+        ;;
+      CONTRACT)
+        printf 'CONTRACT %s — %s\n' "$id" "$assertion"
+        architecture_refs "$architecture" | while IFS= read -r locator; do printf 'ARCHITECTURE %s\n' "$locator"; done
+        ;;
+      CONSTRAINT) printf 'LEGACY-CONSTRAINT %s — %s\n' "$id" "$assertion" ;;
+    esac
+  done | LC_ALL=C sort -u >"$rows"
+  cat "$rows"
+  printf 'ROWS: %s\n' "$(wc -l <"$rows" | tr -d ' ')"
+  rm -f "$rows"
 }
 
 compute_digest() { governing_content "$@" | sort | git hash-object --stdin; }
@@ -500,6 +634,7 @@ do_material_changes() {
   materials=$(mktemp "${TMPDIR:-/tmp}/invariant-material-refs.XXXXXX") || { rm -f "$wanted"; exit 2; }
   scratch=$(mktemp -d "${TMPDIR:-/tmp}/invariant-material-sections.XXXXXX") || { rm -f "$wanted" "$materials"; exit 2; }
   git diff --name-only "$base" "$tip" -- >"$wanted"
+  governance_at=$tip
   governing_content "$@" | awk -F'|' '$1=="DOMAIN" || $1=="CONTRACT" || $1=="CONSTRAINT" {print $5}' >"$materials"
   while IFS= read -r refs; do
     for locator in $(normalise_refs "$refs"); do
@@ -511,9 +646,9 @@ do_material_changes() {
   done <"$materials"
   rm -rf "$scratch"; rm -f "$wanted" "$materials"
 }
-do_observe() {
+do_check_digest() {
   [ "$#" -ge 1 ] || usage; expected=$1; shift; actual=$(compute_digest "$@")
-  if [ "$actual" = "$expected" ]; then echo "OBSERVED: $actual"; else echo "STALE: expected $expected actual $actual"; return 1; fi
+  if [ "$actual" = "$expected" ]; then echo "DIGEST: fresh $actual"; else echo "STALE: expected $expected actual $actual"; return 1; fi
 }
 
 do_message() {
@@ -550,6 +685,17 @@ do_trailer() {
   [ -n "$claimed" ] || { echo "TRAILER: missing Intent-Scope on $commit"; return 1; }
   domains=$(git log -1 --format='%(trailers:key=Intent-Domain,valueonly,separator=%x0a)' "$commit" 2>/dev/null | sed '/^$/d')
   for domain in $domains; do domain_rows | cut -d'|' -f1 | grep -qxF "$domain" || { echo "TRAILER: unknown Intent-Domain $domain"; return 1; }; done
+  architecture_reviews=$(git log -1 --format='%(trailers:key=Intent-Architecture,valueonly,separator=%x0a)' "$commit" 2>/dev/null | sed '/^$/d')
+  for review in $architecture_reviews; do
+    case "$review" in architecture:*) ;; *) echo "TRAILER: invalid Intent-Architecture $review"; return 1 ;; esac
+    {
+      domain_rows | cut -d'|' -f4
+      contract_rows | cut -d'|' -f4
+    } | tr -d '[],' | tr ' ' '\n' | sed '/^$/d' | grep -qxF "$review" || {
+      echo "TRAILER: unreferenced Intent-Architecture $review"
+      return 1
+    }
+  done
   if git rev-parse -q --verify "$commit^" >/dev/null 2>&1; then diff_paths=$(git diff --name-only "$commit^" "$commit")
   else diff_paths=$(git diff-tree --no-commit-id --name-only -r --root "$commit"); fi
   bad=""
@@ -575,7 +721,7 @@ case "$cmd" in
   map) [ "$#" -eq 0 ] || usage; do_map ;;
   rows) do_rows "$@" ;;
   digest) do_digest "$@" ;;
-  observe) do_observe "$@" ;;
+  check-digest|observe) do_check_digest "$@" ;;
   material-changes) do_material_changes "$@" ;;
   reach) with_inputs reach "$@" ;;
   verifiers) with_inputs verifiers "$@" ;;

@@ -2,7 +2,7 @@
 
 Invariant keeps architectural meaning durable while agents and people change a repository together.
 
-- **Governed autonomy:** Accepted responsibilities, contracts, and architectural limits travel with
+- **Governed autonomy:** Accepted responsibilities, contracts, and architecture decisions travel with
   the repository and are verified where possible.
 - **Progressive discovery:** Ordinary work stays ordinary; audits and governance appear only when
   durable meaning needs to be discovered or preserved.
@@ -41,7 +41,7 @@ what to do next:
 
 - `NO RECORD NEEDED` — continue normal work; no governance adoption is required.
 - `RECORD READY` — run `/intent-record adopt` to record the recommended responsibility, promise, or
-  constraint.
+  architecture decision.
 - `RESOLUTION REQUIRED` — answer the single behavior question before adoption.
 - `VERIFIER REQUIRED` — implement the named executable check before recording the contract.
 
@@ -54,8 +54,8 @@ consequential ambiguity.
 |---|---|
 | `intent-brief` | Select semantic domains and compile applicable governance and live claims. |
 | `intent-coordinate` | Validate parallel plans and manage causal leases. |
-| `intent-audit` | Discover and persist non-authoritative findings. |
-| `intent-record` | Adopt accepted domains, contracts, constraints, and defining material. |
+| `intent-audit` | Discover evidence and queue worthwhile unresolved discoveries. |
+| `intent-record` | Promote discoveries into domains, architecture, or contracts. |
 | `intent-land` | Review and verify a prospective tree, then atomically converge it. |
 
 ## Configuration
@@ -75,7 +75,7 @@ integration_branch: main
 | `assisted` | The agent handles routine work within recorded intent, but asks the user before resolving an ambiguous architectural change, compatibility promise, or consequential side effect. |
 | `auto` | The agent may resolve those questions itself when the current request and recorded authority provide enough evidence. It still reports the resolution and records durable consequences when needed. |
 
-Both modes enforce recorded contracts and constraints. Neither mode grants permission to contradict
+Both modes enforce recorded contracts and referenced architecture. Neither mode grants permission to contradict
 explicit requirements or perform external actions such as pushing, deploying, publishing, or
 destructive cleanup.
 
@@ -86,14 +86,19 @@ the current branch when work begins.
 
 ```text
 .intent/config.yml             optional resolution and integration target
-.intent/DOMAINS.yml            accepted semantic responsibilities
-.intent/CONTRACTS.yml          accepted cross-domain promises
-.intent/CONSTRAINTS.yml        accepted architectural constraints
+.intent/DOMAINS.yml            responsibilities plus architecture/contract pointers
+.intent/CONTRACTS.yml          accepted executable cross-domain promises
+.intent/discoveries/<id>.yml   tracked non-authoritative discovery queue
 .intent/audits/<id>.yml        tracked non-authoritative audit evidence
-.intent/observations/<id>.yml  tracked non-authoritative facts
 .intent/runtime/plans/         ignored active coordination graphs
 .intent/runtime/leases/        ignored live ownership claims
 ```
+
+Architecture prose is canonical in anchored Markdown sections. Domains establish relevance by
+pointing to those decisions and to contracts; pointers do not make a document true. Pending
+discoveries are visible warnings, not governance. They become `promoted`, `dismissed`, `superseded`,
+or explicitly `stale` as evidence is resolved. Legacy `CONSTRAINTS.yml` and `observations/` files
+remain readable only to support gradual migration.
 
 Runtime is shared by linked worktrees through the primary worktree. It may be removed without
 changing repository meaning, although doing so discards active coordination state.

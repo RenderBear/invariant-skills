@@ -1,12 +1,14 @@
 ---
 name: intent-audit
-description: Inspect a task scope or explicitly requested repository for missing, stale, or conflicting domains, contracts, constraints, and durable observations, then write a tracked non-authoritative audit report.
+description: Inspect a task scope or explicitly requested repository for missing, stale, or conflicting domains, architecture, contracts, and discoveries, then write bounded non-authoritative evidence.
 ---
 
 # intent-audit
 
-Audit discovers evidence and writes `.intent/audits/<id>.yml`; it never grants authority or changes
-accepted governance. Use a scoped audit when the durable meaning exposed by current work is
+Audit writes `.intent/audits/<id>.yml` and may queue a worthwhile unresolved finding in
+`.intent/discoveries/<id>.yml`; neither grants authority or changes accepted governance. Do not
+create a discovery for facts that can be resolved or discarded in the current task. Use a scoped
+audit when the durable meaning exposed by current work is
 uncertain or the user requests discovery. Clear accepted meaning may proceed directly to
 `intent-record`; do not manufacture an audit merely to add a record. A full audit requires an
 explicit repository-wide request.
@@ -18,7 +20,7 @@ Run `scripts/audit-support.sh scope --paths ...`, or after full-audit authorizat
 
 Write the inspected `ground` commit and exact `tree`, semantic scope, paths, evidence, and bounded
 findings. Classify each finding for the reader as adoptable, needing authority, needing a verifier,
-observation-only, or no action. Existing implementation and history are evidence, never normative
+discovery-only, or no action. Existing implementation and history are evidence, never normative
 authority.
 
 End the user-facing result with a short closeout: group findings by what is ready, what needs a
@@ -35,9 +37,9 @@ Finish with exactly one existing transition:
 - `VERIFIER REQUIRED`.
 
 `NO RECORD NEEDED` means future work remains correct without preserving a new responsibility,
-relied-on promise, authoritative-state choice, operational property, or architectural restriction.
+relied-on promise, authoritative-state choice, operational property, or architecture decision.
 It is a conclusive boundary disposition, not a synonym for missing governance.
 
 `scripts/audit-support.sh fresh <audit>` derives freshness from ancestry and intersecting evidence,
-never timestamps. Accepted findings flow naturally to `intent-record`; no `candidate` selector is
-required for the current audit context.
+never timestamps. Accepted findings and promoted discoveries flow naturally to `intent-record`; no
+`candidate` selector is required for the current audit context.

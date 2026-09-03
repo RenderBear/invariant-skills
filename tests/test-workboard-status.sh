@@ -82,13 +82,13 @@ units:
     objective: First.
     dependencies: []
     paths: [shared]
-    governance: [constraint:shared]
+    governance: [architecture:docs/shared.md#decision]
     verifies: [test:one]
   - id: two
     objective: Second.
     dependencies: []
     paths: [other]
-    governance: [constraint:shared]
+    governance: [architecture:docs/shared.md#decision]
     verifies: [test:two]
 EOF
 if (cd "$fixture" && sh "$plan_support" validate bad >/dev/null 2>&1); then die "unordered governance overlap was accepted"; fi

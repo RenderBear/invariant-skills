@@ -1,6 +1,6 @@
 # Consequential resolution
 
-Use this only after compatible constraints have been composed and reversible implementation
+Use this only after compatible architecture decisions have been composed and reversible implementation
 alternatives exhausted.
 
 `resolution: assisted` sends one bounded question to the human. `resolution: auto` lets the agent

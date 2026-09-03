@@ -20,7 +20,13 @@ git -C "$fixture" config user.name test
 git -C "$fixture" config user.email test@example.com
 git -C "$fixture" config commit.gpgsign false
 mkdir -p "$fixture/.intent/audits" "$fixture/docs" "$fixture/src" "$fixture/ui" "$fixture/checks"
-printf '# Architecture\n' >"$fixture/docs/architecture.md"
+cat >"$fixture/docs/architecture.md" <<'EOF'
+# Architecture
+
+## Source layout
+
+Source behavior remains inside the source domain.
+EOF
 printf '*.pdf\n' >"$fixture/.gitignore"
 printf 'one\n' >"$fixture/src/a.txt"
 printf 'ui\n' >"$fixture/ui/view.txt"
@@ -37,10 +43,12 @@ cat >"$fixture/.intent/DOMAINS.yml" <<'EOF'
 version: 1
 domains:
   - id: source
-    description: Source behavior.
+    responsibility: Owns source behavior.
     authority: user:task:test#turn-1
+    architecture: [architecture:docs/architecture.md#source-layout]
+    contracts: [source.protocol.v1]
   - id: consumer
-    description: Consumes source behavior.
+    responsibility: Consumes source behavior.
     authority: user:task:test#turn-1
 EOF
 cat >"$fixture/.intent/CONTRACTS.yml" <<'EOF'
@@ -51,18 +59,8 @@ contracts:
     authority: user:task:test#turn-1
     between: [source, consumer]
     surfaces: [repo:src]
-    material: [architecture:docs/architecture.md]
+    architecture: [architecture:docs/architecture.md#source-layout]
     verifies: [command:checks/verify.sh]
-EOF
-cat >"$fixture/.intent/CONSTRAINTS.yml" <<'EOF'
-version: 1
-constraints:
-  - id: source.layout
-    assertion: Source behavior remains inside the source domain.
-    authority: user:task:test#turn-1
-    applies_to: [source]
-    surfaces: [repo:src]
-    material: [architecture:docs/architecture.md]
 EOF
 git -C "$fixture" add -A
 git -C "$fixture" commit -qm seed
@@ -91,16 +89,16 @@ printf 'two\n' >"$fixture/src/a.txt"
 finish_branch "source update"
 old=$(git -C "$fixture" rev-parse HEAD)
 if (cd "$fixture" && sh "$land" merge intent/work/u1 "missing boundary review" --unit u1 \
-    --scope area.src --domain source --reviewed constraint:source.layout >/dev/null 2>&1); then
+    --scope area.src --domain source --reviewed architecture:docs/architecture.md#source-layout >/dev/null 2>&1); then
   die "merge landed without a boundary disposition"
 fi
 [ "$(git -C "$fixture" rev-parse HEAD)" = "$old" ] || die "missing boundary review moved target"
 if (cd "$fixture" && sh "$land" merge intent/work/u1 "unreviewed" --unit u1 --scope area.src \
     --domain source --boundary-review no-record >/dev/null 2>&1); then
-  die "semantic constraint landed without review"
+  die "architectural decision landed without review"
 fi
 out=$(cd "$fixture" && sh "$land" merge intent/work/u1 "reviewed source" --unit u1 \
-  --scope area.src --domain source --reviewed constraint:source.layout --boundary-review no-record \
+  --scope area.src --domain source --reviewed architecture:docs/architecture.md#source-layout --boundary-review no-record \
   --check command:checks/verify.sh --check command:checks/verify.sh)
 [ "$(printf '%s\n' "$out" | grep -c '^CHECK: running — command:checks/verify.sh$')" -eq 1 ] ||
   die "duplicate auto-discovered and explicit checks did not run exactly once"
@@ -109,14 +107,16 @@ printf '%s\n' "$out" | grep -q '^BOUNDARY-REVIEW: no-record$' || die "no-record 
 printf '%s\n' "$out" | grep -q '^LANDED:' || die "reviewed candidate did not land"
 git -C "$fixture" log -1 --format='%(trailers:key=Intent-Boundary,valueonly)' | grep -qxF no-record ||
   die "boundary disposition was not preserved in the landing commit"
-ok "merge requires boundary disposition and applicable semantic review"
+git -C "$fixture" log -1 --format='%(trailers:key=Intent-Architecture,valueonly)' |
+  grep -qxF architecture:docs/architecture.md#source-layout || die "architecture review attestation was not preserved"
+ok "merge requires boundary disposition and applicable architecture review"
 
 start_branch intent/work/u2
 printf 'broken\n' >"$fixture/src/a.txt"
 finish_branch "broken source"
 old=$(git -C "$fixture" rev-parse HEAD)
 if (cd "$fixture" && sh "$land" merge intent/work/u2 "broken" --unit u2 --scope area.src \
-    --domain source --reviewed constraint:source.layout --boundary-review no-record >/dev/null 2>&1); then
+    --domain source --reviewed architecture:docs/architecture.md#source-layout --boundary-review no-record >/dev/null 2>&1); then
   die "broken contract landed"
 fi
 [ "$(git -C "$fixture" rev-parse HEAD)" = "$old" ] || die "failed verifier moved target"
@@ -176,35 +176,37 @@ printf '%s\n' "$out" | grep -q '^BOUNDARY-REVIEW: audit:ui-boundary' || die "con
 ok "only a fresh conclusive scoped audit clears boundary review"
 
 start_branch intent/work/governance
-cat >>"$fixture/.intent/CONSTRAINTS.yml" <<'EOF'
-  - id: source.naming
-    assertion: Source names remain explicit.
-    authority: user:task:test#turn-2
-    applies_to: [source]
-    material: [architecture:docs/architecture.md]
+cat >>"$fixture/docs/architecture.md" <<'EOF'
+
+## Source naming
+
+Source names remain explicit.
 EOF
-finish_branch "adopt naming constraint"
+sed 's|architecture: \[architecture:docs/architecture.md#source-layout\]|architecture: [architecture:docs/architecture.md#source-layout, architecture:docs/architecture.md#source-naming]|' \
+  "$fixture/.intent/DOMAINS.yml" >"$fixture/.intent/DOMAINS.tmp"
+mv "$fixture/.intent/DOMAINS.tmp" "$fixture/.intent/DOMAINS.yml"
+finish_branch "adopt naming architecture"
 old=$(git -C "$fixture" rev-parse HEAD)
 if (cd "$fixture" && sh "$land" merge intent/work/governance "unresolved adoption" --unit govern \
-    --scope area.root --domain source --reviewed constraint:source.layout \
-    --reviewed constraint:source.naming --boundary-review recorded \
-    --governance constraint:source.naming >/dev/null 2>&1); then
+    --scope area.docs --domain source --reviewed architecture:docs/architecture.md#source-layout \
+    --reviewed architecture:docs/architecture.md#source-naming --boundary-review recorded \
+    --governance architecture:docs/architecture.md#source-naming >/dev/null 2>&1); then
   die "additive governance landed without resolved authority"
 fi
 if (cd "$fixture" && sh "$land" merge intent/work/governance "wrong disposition" --unit govern \
-    --scope area.root --domain source --reviewed constraint:source.layout \
-    --reviewed constraint:source.naming --boundary-review no-record --allow-open >/dev/null 2>&1); then
+    --scope area.docs --domain source --reviewed architecture:docs/architecture.md#source-layout \
+    --reviewed architecture:docs/architecture.md#source-naming --boundary-review no-record --allow-open >/dev/null 2>&1); then
   die "governance change accepted a no-record disposition"
 fi
 [ "$(git -C "$fixture" rev-parse HEAD)" = "$old" ] || die "unresolved governance moved target"
 out=$(cd "$fixture" && sh "$land" merge intent/work/governance "adopt naming" --unit govern \
-  --scope area.root --domain source --reviewed constraint:source.layout \
-  --reviewed constraint:source.naming --boundary-review recorded \
-  --governance constraint:source.naming --allow-open)
-printf '%s\n' "$out" | grep -q '^GOVERNANCE: additive record establishment$' || die "additive governance was not classified open"
-printf '%s\n' "$out" | grep -q '^BOUNDARY-REVIEW: recorded — constraint:source.naming$' || die "recorded governance disposition missing"
+  --scope area.docs --domain source --reviewed architecture:docs/architecture.md#source-layout \
+  --reviewed architecture:docs/architecture.md#source-naming --boundary-review recorded \
+  --governance architecture:docs/architecture.md#source-naming --allow-open)
+printf '%s\n' "$out" | grep -Eq '^GOVERNANCE: (additive record establishment|existing accepted record changed or removed)$' || die "architecture adoption was not classified open or gated"
+printf '%s\n' "$out" | grep -q '^BOUNDARY-REVIEW: recorded — architecture:docs/architecture.md#source-naming$' || die "recorded governance disposition missing"
 git -C "$fixture" log -1 --format='%(trailers:key=Intent-Governance,valueonly)' |
-  grep -qxF constraint:source.naming || die "governance reference was not preserved in the landing commit"
+  grep -qxF architecture:docs/architecture.md#source-naming || die "governance reference was not preserved in the landing commit"
 ok "governance changes require authority and accepted record references"
 
 start_branch intent/work/worker
@@ -236,16 +238,16 @@ units:
 EOF
 old=$(git -C "$fixture" rev-parse HEAD)
 if (cd "$fixture" && sh "$land" merge intent/work/worker "missing lease" --unit worker \
-    --scope area.src --domain source --reviewed constraint:source.layout \
-    --reviewed constraint:source.naming --boundary-review no-record --plan bundle >/dev/null 2>&1); then
+    --scope area.src --domain source --reviewed architecture:docs/architecture.md#source-layout \
+    --reviewed architecture:docs/architecture.md#source-naming --boundary-review no-record --plan bundle >/dev/null 2>&1); then
   die "coordinated landing without lease succeeded"
 fi
 [ "$(git -C "$fixture" rev-parse HEAD)" = "$old" ] || die "missing lease moved target"
 (cd "$fixture" && sh "$lease" create worker --scope area.src --paths src/b.txt --domains source \
   --digest "$source_digest" --branch intent/work/worker --integration-target main >/dev/null)
 out=$(cd "$fixture" && sh "$land" merge intent/work/worker "land worker" --unit worker \
-  --scope area.src --domain source --reviewed constraint:source.layout \
-  --reviewed constraint:source.naming --boundary-review no-record --plan bundle)
+  --scope area.src --domain source --reviewed architecture:docs/architecture.md#source-layout \
+  --reviewed architecture:docs/architecture.md#source-naming --boundary-review no-record --plan bundle)
 printf '%s\n' "$out" | grep -q '^LANDED:' || die "fresh matching lease did not land"
 [ ! -e "$runtime/leases/worker.yml" ] || die "landed lease was not released"
 [ -f "$runtime/plans/bundle.yml" ] || die "incomplete plan was removed"

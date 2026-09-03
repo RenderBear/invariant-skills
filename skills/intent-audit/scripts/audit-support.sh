@@ -48,10 +48,16 @@ snapshot() {
 }
 
 emit_records() {
-  for spec in DOMAINS:DOMAIN CONTRACTS:CONTRACT CONSTRAINTS:CONSTRAINT; do
+  for spec in DOMAINS:DOMAIN CONTRACTS:CONTRACT CONSTRAINTS:LEGACY-CONSTRAINT; do
     file=${spec%%:*}; label=${spec#*:}
     [ -f ".intent/$file.yml" ] || continue
     awk -v label="$label" '/^  - id:/ {v=$0; sub(/^[^:]*: */,"",v); sub(/[[:space:]]+#.*$/, "", v); print label ": " v}' ".intent/$file.yml"
+  done
+  for file in .intent/discoveries/*.yml; do
+    [ -f "$file" ] || continue
+    id=$(sed -n 's/^id:[[:space:]]*//p' "$file" | head -1)
+    status=$(sed -n 's/^status:[[:space:]]*//p' "$file" | head -1)
+    printf 'DISCOVERY: %s (%s)\n' "$id" "$status"
   done
 }
 

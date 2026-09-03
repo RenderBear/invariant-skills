@@ -13,7 +13,7 @@ git -C "$fixture" init -qb main
 git -C "$fixture" config user.name test
 git -C "$fixture" config user.email test@example.com
 git -C "$fixture" config commit.gpgsign false
-mkdir -p "$fixture/docs/adr" "$fixture/src/ocr" "$fixture/ui" "$fixture/.intent/audits"
+mkdir -p "$fixture/docs/adr" "$fixture/src/ocr" "$fixture/ui" "$fixture/.intent/audits" "$fixture/.intent/discoveries"
 printf '# Architecture\n' >"$fixture/docs/architecture.md"
 printf '# ADR\n' >"$fixture/docs/adr/0001.md"
 printf 'ocr\n' >"$fixture/src/ocr/engine.txt"
@@ -22,9 +22,9 @@ cat >"$fixture/.intent/DOMAINS.yml" <<'EOF'
 version: 1
 domains:
   - id: ocr.engine
-    description: Executes OCR.
+    responsibility: Executes OCR.
     authority: user:task:test#turn-1
-    material: [architecture:docs/architecture.md]
+    architecture: [architecture:docs/architecture.md#architecture]
 EOF
 git -C "$fixture" add -A
 git -C "$fixture" commit -qm seed
@@ -62,15 +62,15 @@ findings:
   - id: architecture-source
     summary: OCR behavior is described by the architecture document.
     evidence: [repo:docs/architecture.md, repo:src/ocr]
-    proposed: observation
-    disposition: observation-only
+    proposed: discovery
+    disposition: discovery-only
 EOF
 (cd "$fixture" && sh "$validator" >/dev/null) || die "tracked audit schema is invalid"
 git -C "$fixture" add .intent/audits/ocr.yml
 git -C "$fixture" commit -qm "record audit"
 out=$(cd "$fixture" && sh "$audit" fresh ocr)
 printf '%s\n' "$out" | grep -q '^FRESH:' || die "audit commit made its own evidence stale"
-ok "tracked audits remain non-authoritative causal evidence"
+ok "tracked audits can queue non-authoritative discoveries"
 
 mkdir -p "$fixture/captured"
 printf 'captured\n' >"$fixture/captured/fact.txt"
