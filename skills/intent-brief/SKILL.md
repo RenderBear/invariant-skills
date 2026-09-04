@@ -21,15 +21,18 @@ code, and referenced material; never infer domain membership mechanically from a
 5. Apply the durable-meaning test below. Adopt only meaning future work must preserve; use a scoped
    audit when the answer is uncertain.
 6. Open a task receipt with `scripts/session-brief.sh open`. On later turns, `check` permits reuse of
-   retained instructions and rows while hashes, goal, semantic scope, and governing meaning remain
-   fresh. An unrelated, mergeable integration-head advance is adopted into the receipt. Reload
-   instructions after context compaction even when the receipt is fresh.
+   retained instructions and rows while hashes, semantic scope, and governing meaning remain fresh.
+   An unrelated, mergeable integration-head advance is adopted into the receipt. Reload instructions
+   after context compaction even when the receipt is fresh.
 7. Before the first repository mutation, create `intent/work/<uuid>` from the captured integration
    head. Use `intent-coordinate` only when useful independent work requires it.
 
 Open the receipt with the current goal, posture, boundary disposition, and repeated `--path`,
-`--interface`, and `--domain` arguments. Pass the current goal and full known scope to `check`; if it
-reports stale, recompile and reopen rather than extending the cached result.
+`--interface`, and `--domain` arguments. Pass the current goal and full known scope to `check`. An
+exact goal-text change is rejected by default. Pass `--compatible-goal` only after semantically
+confirming that the cached path, interface, and domain scope, posture, and boundary disposition all
+still apply. The check then refreshes the exact goal digest. If any of that envelope changed,
+recompile and reopen rather than extending the cached result.
 
 Before mutation, give the user a compact intent receipt: the goal in plain language, whether durable
 meaning appears unchanged, changed, or uncertain, the relevant accepted intent, and any decision
@@ -72,7 +75,8 @@ semantic restart; a governing-material change, expanded semantic scope, or real 
 ## Lifetime and landing
 
 A brief remains usable until its domain-governance digest or selected defining material changes, its
-semantic scope expands, or its task branch conflicts with the integration head.
+semantic envelope changes, or its task branch conflicts with the integration head. Editorial goal
+changes may reuse the envelope through explicit semantic confirmation.
 Use `session-brief.sh check` for task reuse and `check-digest <digest> <domain...>` for a bare governance
 check. The receipt is a disposable cache under Git's shared administrative directory; it is never
 authority and landing never consumes it. Git supplies causal order; no timestamp decides freshness.

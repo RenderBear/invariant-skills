@@ -55,10 +55,11 @@ Reusable task brief receipts live outside repository state at:
 <git-common-dir>/invariant/briefs/<task-id>.yml
 ```
 
-They are derived caches, not another plane of authority or coordination. A receipt binds its goal,
-integration target and head, selected scope, governance digest, and brief and landing package hashes.
-It permits reuse of material already retained in the active context; it does not make that material
-authoritative and is discarded or rebuilt when any binding input changes.
+They are derived caches, not another plane of authority or coordination. A receipt records the exact
+goal digest as a drift detector and binds its semantic envelope: integration target and head,
+selected scope, posture, boundary disposition, governance digest, and brief and landing package
+hashes. It permits reuse of material already retained in the active context; it does not make that
+material authoritative and is discarded or rebuilt when any binding input changes.
 
 ## 4. Configuration
 
@@ -283,14 +284,18 @@ it. Referenced architecture content is checked causally and independently rather
 the registry.
 
 After compiling a brief, the agent may write a disposable per-task receipt to Git's shared
-administrative directory. Reuse requires the same repository identity, goal digest, integration
-target, brief and landing package hashes, selected governance digest, and no expansion of paths,
-interfaces, or domains. An advanced integration head is adopted into the receipt when the cached
-head remains its ancestor, selected governance and defining material are unchanged, and the task tip
-still merges cleanly. A governing change is semantically stale; a content conflict is reported as a
-merge problem, not disguised as semantic invalidation. Context compaction still requires reloading
-the relevant instructions because the receipt proves freshness, not model retention. Landing ignores
-the cache and independently recomputes reach from the exact candidate tree.
+administrative directory. Reuse requires the same repository identity, integration target, brief and
+landing package hashes, selected governance digest, and no expansion of paths, interfaces, or
+domains. The exact goal digest detects textual drift. Changed text is rejected by default, but the
+agent may explicitly confirm that the current goal remains compatible with the cached scope,
+posture, and boundary disposition; successful confirmation refreshes the exact digest and cannot
+bypass any other freshness check. An advanced integration head is adopted into the receipt when the
+cached head remains its ancestor, selected governance and defining material are unchanged, and the
+task tip still merges cleanly. A governing change is semantically stale; a content conflict is
+reported as a merge problem, not disguised as semantic invalidation. Context compaction still
+requires reloading the relevant instructions because the receipt proves freshness, not model
+retention. Landing ignores the cache and independently recomputes reach from the exact candidate
+tree.
 
 ## 11. Work branches, parallel planning, and leases
 

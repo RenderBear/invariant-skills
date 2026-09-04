@@ -105,6 +105,7 @@ Repeated turns may reuse a hash-validated brief receipt stored under Git's share
 directory at `<git-common-dir>/invariant/briefs/`. The receipt contains no authority and never
 replaces reach recomputation or exact-tree verification at landing. An unrelated, mergeable advance
 of the integration branch refreshes the receipt in place; changed governing material, expanded
-semantic scope, or a real merge conflict requires attention.
-
+semantic scope, or a real merge conflict requires attention. Exact goal hashes detect textual drift;
+a reworded goal can refresh that hash only after explicit confirmation that the cached semantic
+envelope still applies.
 

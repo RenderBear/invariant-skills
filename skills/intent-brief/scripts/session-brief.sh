@@ -12,12 +12,16 @@ usage:
                         [--interface <name>]... [--domain <id>]...
   session-brief.sh check <task-id> --goal <text> [--path <path>]...
                          [--interface <name>]... [--domain <id>]...
+                         [--compatible-goal]
   session-brief.sh invalidate <task-id>
 
 The cache is a freshness receipt, not governance or landing evidence. `check`
 rejects changed repository identity, skill content, selected governance or
-defining material, goal, or expanded scope. An advanced integration head is
-adopted when it remains causally related and cleanly mergeable.
+defining material, goal text, or expanded scope. `--compatible-goal` accepts
+changed goal text only after the caller confirms that the cached semantic
+scope, posture, and boundary disposition still apply. It never bypasses the
+other freshness checks. An advanced integration head is adopted when it
+remains causally related and cleanly mergeable.
 EOF
   exit 2
 }
@@ -148,7 +152,7 @@ material_changes() {
 parse_scope_args() {
   allow_posture=$1
   shift
-  goal=""; goal_supplied=0; posture=""; boundary=""; scope_supplied=0
+  goal=""; goal_supplied=0; goal_compatible=0; posture=""; boundary=""; scope_supplied=0
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --goal) [ "$#" -ge 2 ] || usage; goal=$2; goal_supplied=1; shift 2 ;;
@@ -163,6 +167,10 @@ parse_scope_args() {
       --path) [ "$#" -ge 2 ] || usage; printf '%s\n' "$2" >>"$paths"; scope_supplied=1; shift 2 ;;
       --interface) [ "$#" -ge 2 ] || usage; printf '%s\n' "$2" >>"$interfaces"; scope_supplied=1; shift 2 ;;
       --domain) [ "$#" -ge 2 ] || usage; printf '%s\n' "$2" >>"$domains"; scope_supplied=1; shift 2 ;;
+      --compatible-goal)
+        [ "$allow_posture" -eq 0 ] || usage
+        goal_compatible=1; shift
+        ;;
       *) usage ;;
     esac
   done
@@ -182,12 +190,14 @@ stale() {
   exit 1
 }
 
-refresh_integration() {
-  head=$1; governance=$2
+refresh_receipt() {
+  head=$1; governance=$2; goal_digest=$3
   pending=$(mktemp "$cache_root/.$task.XXXXXX") || exit 2
   quoted_head=$(yaml_quote "$head")
   quoted_governance=$(yaml_quote "$governance")
-  awk -v head="$quoted_head" -v governance="$quoted_governance" '
+  quoted_goal=$(yaml_quote "$goal_digest")
+  awk -v head="$quoted_head" -v governance="$quoted_governance" -v goal="$quoted_goal" '
+    /^goal_digest: / {$0="goal_digest: " goal}
     /^integration_head: / {$0="integration_head: " head}
     /^  integration_governance_digest: / {$0="  integration_governance_digest: " governance}
     {print}
@@ -257,7 +267,11 @@ case "$cmd" in
     [ "$(governance_digest "$scratch/cached-domains")" = "$(manifest_value '  governance_digest: ')" ] || stale "selected governance changed"
 
     current_goal=$(printf '%s' "$goal" | git hash-object --stdin)
-    [ "$current_goal" = "$(manifest_value 'goal_digest: ')" ] || stale "goal changed"
+    goal_changed=0
+    if [ "$current_goal" != "$(manifest_value 'goal_digest: ')" ]; then
+      [ "$goal_compatible" -eq 1 ] || stale "goal changed"
+      goal_changed=1
+    fi
 
     if [ "$scope_supplied" -eq 1 ]; then
       manifest_list paths >"$scratch/cached-paths"
@@ -272,7 +286,9 @@ case "$cmd" in
     fi
 
     cached_head=$(manifest_value 'integration_head: ')
+    integration_governance=$(manifest_value '  integration_governance_digest: ')
     current_head=$(integration_head "$target")
+    head_advanced=0
     if [ "$current_head" != "$cached_head" ]; then
       [ "$cached_head" != unborn ] && [ "$current_head" != unborn ] || stale "integration branch birth state changed"
       git merge-base --is-ancestor "$cached_head" "$current_head" >/dev/null 2>&1 || stale "integration history no longer descends from the cached head"
@@ -293,12 +309,21 @@ case "$cmd" in
           exit 1
         fi
       fi
-      refresh_integration "$current_head" "$integration_governance"
+      head_advanced=1
+    fi
+
+    if [ "$head_advanced" -eq 1 ] || [ "$goal_changed" -eq 1 ]; then
+      refresh_receipt "$current_head" "$integration_governance" "$current_goal"
+    fi
+    if [ "$head_advanced" -eq 1 ]; then
       printf 'HEAD: advanced %s..%s — mergeable, brief reused\n' "$cached_head" "$current_head"
+    fi
+    if [ "$goal_changed" -eq 1 ]; then
+      printf 'GOAL: changed text accepted for cached semantic envelope\n'
     fi
 
     printf 'BRIEF: fresh %s\n' "$task"
-    printf 'REUSE: skill instructions and selected governance rows\n'
+    printf 'REUSE: cached semantic envelope\n'
     printf 'POSTURE: %s\n' "$(manifest_value '  posture: ')"
     printf 'BOUNDARY: %s\n' "$(manifest_value '  boundary: ')"
     ;;

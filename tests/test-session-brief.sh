@@ -58,6 +58,7 @@ ok "brief receipt is disposable Git-local state"
 out=$(cd "$fixture" && sh "$session_brief" check task-1 --goal "Change source safely" \
   --path "src/a file.py" --interface SourceApi --domain source)
 printf '%s\n' "$out" | grep -q '^BRIEF: fresh task-1$' || die "unchanged brief was not reusable"
+printf '%s\n' "$out" | grep -q '^REUSE: cached semantic envelope$' || die "reuse overstated cached model context"
 printf '%s\n' "$out" | grep -q '^POSTURE: bounded$' || die "cached posture was not retained"
 ok "unchanged instructions, governance, goal, and scope reuse the brief"
 
@@ -66,6 +67,28 @@ if out=$(cd "$fixture" && sh "$session_brief" check task-1 --goal "A different t
 fi
 printf '%s\n' "$out" | grep -q '^STALE: goal changed$' || die "goal staleness lacks a precise reason"
 ok "goal digest prevents cross-purpose reuse"
+
+out=$(cd "$fixture" && sh "$session_brief" check task-1 \
+  --goal "Safely change source" --compatible-goal \
+  --path "src/a file.py" --interface SourceApi --domain source)
+printf '%s\n' "$out" | grep -q '^GOAL: changed text accepted for cached semantic envelope$' ||
+  die "compatible goal wording was not acknowledged"
+printf '%s\n' "$out" | grep -q '^BRIEF: fresh task-1$' || die "compatible goal wording did not reuse the brief"
+out=$(cd "$fixture" && sh "$session_brief" check task-1 --goal "Safely change source")
+printf '%s\n' "$out" | grep -q '^BRIEF: fresh task-1$' || die "accepted goal digest was not refreshed"
+(cd "$fixture" && sh "$session_brief" check task-1 --goal "Change source safely" --compatible-goal >/dev/null) ||
+  die "test goal could not be restored"
+ok "semantic confirmation reuses the envelope and refreshes exact goal identity"
+
+if out=$(cd "$fixture" && sh "$session_brief" check task-1 --goal "Change another source" \
+  --compatible-goal --path src/new.py 2>&1); then
+  die "compatible-goal bypassed expanded scope"
+fi
+printf '%s\n' "$out" | grep -q '^STALE: path scope expanded to src/new.py$' ||
+  die "hard freshness checks did not outrank semantic goal confirmation"
+out=$(cd "$fixture" && sh "$session_brief" check task-1 --goal "Change source safely")
+printf '%s\n' "$out" | grep -q '^BRIEF: fresh task-1$' || die "rejected goal change altered the receipt"
+ok "semantic confirmation cannot bypass or partially update hard freshness gates"
 
 cp "$framework/skills/intent-brief/SKILL.md" "$framework/SKILL.saved"
 printf '\nCache behavior changed.\n' >>"$framework/skills/intent-brief/SKILL.md"
@@ -159,4 +182,4 @@ out=$(cd "$unborn" && sh "$session_brief" check unborn-task --goal "Create the r
 printf '%s\n' "$out" | grep -q '^BRIEF: fresh unborn-task$' || die "unborn repository could not reuse its brief"
 ok "brief receipts support an unborn integration branch"
 
-echo "13 session-brief checks passed"
+echo "15 session-brief checks passed"
