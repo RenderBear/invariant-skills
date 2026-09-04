@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A plain-language visual explanation of how Invariant preserves accepted meaning across agentic change.">
+  <title>How Invariant works</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18201d;
+      --muted: #5a6560;
+      --paper: #f5f2e9;
+      --panel: #fffdf7;
+      --line: #cfd5cc;
+      --green: #0d6b50;
+      --green-soft: #dcefe7;
+      --blue: #255f85;
+      --blue-soft: #e2eef5;
+      --amber: #875b0d;
+      --amber-soft: #f6ead0;
+      --shadow: 0 12px 34px rgba(31, 45, 39, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 0%, #e6efe6 0, transparent 32rem),
+        var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 4rem 0 6rem;
+    }
+
+    header { max-width: 780px; margin-bottom: 3rem; }
+
+    .eyebrow,
+    .label {
+      color: var(--green);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0.45rem 0 0.8rem;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.7rem, 8vw, 5.5rem);
+      font-weight: 500;
+      letter-spacing: -0.055em;
+      line-height: 0.96;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.25rem);
+    }
+
+    h2 {
+      margin: 0 0 1rem;
+      font-size: 1.15rem;
+      letter-spacing: -0.015em;
+    }
+
+    h3 { margin: 0 0 0.45rem; font-size: 1rem; }
+    p { margin: 0; }
+
+    section { margin-top: 3.5rem; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+    }
+
+    .step,
+    .card,
+    details {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--panel) 92%, transparent);
+      box-shadow: var(--shadow);
+    }
+
+    .step {
+      position: relative;
+      min-height: 150px;
+      padding: 1rem;
+    }
+
+    .step:not(:last-child)::after {
+      position: absolute;
+      z-index: 2;
+      top: 50%;
+      right: -0.72rem;
+      width: 0.65rem;
+      color: var(--green);
+      background: var(--paper);
+      content: "→";
+      font-weight: 900;
+      transform: translateY(-50%);
+    }
+
+    .number {
+      display: grid;
+      width: 1.75rem;
+      height: 1.75rem;
+      margin-bottom: 1rem;
+      place-items: center;
+      border-radius: 99px;
+      color: white;
+      background: var(--green);
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .step p,
+    .card p,
+    details p,
+    li { color: var(--muted); font-size: 0.9rem; }
+
+    .planes,
+    .examples {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .card { padding: 1.15rem; }
+    .accepted { border-top: 5px solid var(--green); }
+    .evidence { border-top: 5px solid var(--amber); }
+    .runtime { border-top: 5px solid var(--blue); }
+
+    .tokens {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 1rem;
+    }
+
+    code,
+    .token {
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.77rem;
+    }
+
+    .token { padding: 0.28rem 0.5rem; background: #eef0eb; }
+
+    .clock {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    pre {
+      min-height: 100%;
+      margin: 0;
+      padding: 1.25rem;
+      overflow-x: auto;
+      border-radius: 14px;
+      color: #e8f0ea;
+      background: #1d2924;
+      font: 0.9rem/1.75 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      box-shadow: var(--shadow);
+    }
+
+    .clock-copy {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .mini {
+      padding: 0.9rem 1rem;
+      border-left: 4px solid var(--green);
+      border-radius: 0 10px 10px 0;
+      background: var(--green-soft);
+    }
+
+    .mini strong { display: block; margin-bottom: 0.15rem; }
+
+    .scenario-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.85rem;
+    }
+
+    button {
+      padding: 0.62rem 0.85rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--ink);
+      background: var(--panel);
+      font: inherit;
+      font-size: 0.86rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button[aria-pressed="true"] {
+      color: white;
+      border-color: var(--green);
+      background: var(--green);
+    }
+
+    button:focus-visible,
+    summary:focus-visible { outline: 3px solid #8cc7b2; outline-offset: 3px; }
+
+    .scenario {
+      display: grid;
+      grid-template-columns: 9rem 1fr;
+      gap: 1rem;
+      min-height: 150px;
+      padding: 1.25rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .verdict {
+      align-self: start;
+      padding: 0.75rem;
+      border-radius: 10px;
+      color: var(--green);
+      background: var(--green-soft);
+      font-size: 0.75rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .scenario ol { margin: 0; padding-left: 1.15rem; }
+    .scenario li + li { margin-top: 0.4rem; }
+
+    details { padding: 0.9rem 1rem; box-shadow: none; }
+    details + details { margin-top: 0.55rem; }
+    summary { cursor: pointer; font-weight: 750; }
+    details p { margin-top: 0.6rem; }
+
+    .rule {
+      margin-top: 3.5rem;
+      padding: 1.5rem;
+      border-radius: 16px;
+      color: #eaf3ed;
+      background: #1d2924;
+      font-size: clamp(1.05rem, 2vw, 1.35rem);
+      text-align: center;
+    }
+
+    .rule strong { color: #8fdbbd; }
+
+    @media (max-width: 900px) {
+      .flow { grid-template-columns: repeat(3, 1fr); }
+      .step:nth-child(3)::after { display: none; }
+    }
+
+    @media (max-width: 680px) {
+      main { padding-top: 2.5rem; }
+      .flow,
+      .planes,
+      .examples,
+      .clock { grid-template-columns: 1fr; }
+      .step { min-height: auto; }
+      .step::after { display: none; }
+      .scenario { grid-template-columns: 1fr; }
+      .verdict { width: max-content; }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      button { transition: color 140ms ease, background 140ms ease, transform 140ms ease; }
+      button:hover { transform: translateY(-1px); }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">The mechanical model</div>
+      <h1>How Invariant works</h1>
+      <p>It gives an agent room to change code, but makes it prove the finished snapshot still preserves the decisions your repository relies on.</p>
+    </header>
+
+    <section aria-labelledby="loop-title">
+      <div class="label">The main loop</div>
+      <h2 id="loop-title">One change, six mechanical steps</h2>
+      <div class="flow">
+        <article class="step">
+          <div class="number">1</div>
+          <h3>Request</h3>
+          <p>You describe the outcome.</p>
+        </article>
+        <article class="step">
+          <div class="number">2</div>
+          <h3>Brief</h3>
+          <p>Find only the relevant decisions and promises.</p>
+        </article>
+        <article class="step">
+          <div class="number">3</div>
+          <h3>Branch</h3>
+          <p>Work on an isolated line of Git history.</p>
+        </article>
+        <article class="step">
+          <div class="number">4</div>
+          <h3>Candidate</h3>
+          <p>Combine the work with the latest integration snapshot.</p>
+        </article>
+        <article class="step">
+          <div class="number">5</div>
+          <h3>Verify</h3>
+          <p>Review meaning and run checks on that exact candidate.</p>
+        </article>
+        <article class="step">
+          <div class="number">6</div>
+          <h3>Land</h3>
+          <p>Move the integration pointer only if nothing changed underneath it.</p>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="memory-title">
+      <div class="label">What the repository remembers</div>
+      <h2 id="memory-title">Three kinds of state, three different powers</h2>
+      <div class="planes">
+        <article class="card accepted">
+          <h3>Accepted meaning</h3>
+          <p>Things future changes must preserve. This is the only binding layer.</p>
+          <div class="tokens">
+            <span class="token">domains</span>
+            <span class="token">architecture</span>
+            <span class="token">contracts</span>
+          </div>
+        </article>
+        <article class="card evidence">
+          <h3>Evidence</h3>
+          <p>Useful findings that may be wrong or unfinished. Visible, never automatically authoritative.</p>
+          <div class="tokens">
+            <span class="token">audits</span>
+            <span class="token">discoveries</span>
+          </div>
+        </article>
+        <article class="card runtime">
+          <h3>Live coordination</h3>
+          <p>Who is doing what right now. Safe to discard; it cannot change repository meaning.</p>
+          <div class="tokens">
+            <span class="token">plans</span>
+            <span class="token">leases</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="clock-title">
+      <div class="label">The causal clock</div>
+      <h2 id="clock-title">Git order matters. Wall-clock time does not.</h2>
+      <div class="clock">
+        <pre aria-label="Git history example"><code>main       A──B──C
+                ╲
+work             D──E
+
+candidate  A──B──C──M
+                   ↑
+              verify M
+              then move main</code></pre>
+        <div class="clock-copy">
+          <div class="mini">
+            <strong>A commit is a snapshot.</strong>
+            Git knows which earlier snapshot it came from.
+          </div>
+          <div class="mini">
+            <strong>A branch is a pointer.</strong>
+            Landing moves <code>main</code> from C to verified snapshot M.
+          </div>
+          <div class="mini">
+            <strong>Compare-and-swap prevents races.</strong>
+            If <code>main</code> moved after M was built, landing stops and rebuilds from the new head.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="cases-title">
+      <div class="label">Try three situations</div>
+      <h2 id="cases-title">The amount of ceremony follows the meaning</h2>
+      <div class="scenario-picker" role="group" aria-label="Example changes">
+        <button id="tab-local" aria-pressed="true" aria-controls="scenario" data-scenario="local">Small local edit</button>
+        <button id="tab-contract" aria-pressed="false" aria-controls="scenario" data-scenario="contract">Public behavior changes</button>
+        <button id="tab-parallel" aria-pressed="false" aria-controls="scenario" data-scenario="parallel">Two agents work</button>
+      </div>
+      <div id="scenario" class="scenario" aria-live="polite" aria-labelledby="tab-local">
+        <div class="verdict" id="verdict">Local</div>
+        <ol id="scenario-steps">
+          <li>The brief finds no affected accepted meaning.</li>
+          <li>The agent records an explicit <code>no-record</code> decision.</li>
+          <li>Focused checks run on the candidate, then it lands.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section aria-labelledby="terms-title">
+      <div class="label">Words worth knowing</div>
+      <h2 id="terms-title">A tiny glossary</h2>
+      <details>
+        <summary>Reach</summary>
+        <p>How far a change reaches: local, bounded by accepted meaning, open for adoption, or gated because it rewrites what was accepted.</p>
+      </details>
+      <details>
+        <summary>Domain</summary>
+        <p>A stable responsibility such as “job delivery” or “tenant isolation.” It points to relevant architecture and contracts; it is not a folder.</p>
+      </details>
+      <details>
+        <summary>Contract</summary>
+        <p>A behavior one domain relies on another domain to preserve, paired with an executable check.</p>
+      </details>
+      <details>
+        <summary>Discovery</summary>
+        <p>A tracked question or finding. It warns while pending, but gains authority only if promoted into architecture, a domain, or a contract.</p>
+      </details>
+      <details>
+        <summary>Exact tree</summary>
+        <p>The precise set and contents of files that would exist after landing—not merely the agent’s branch before it meets the latest <code>main</code>.</p>
+      </details>
+    </section>
+
+    <div class="rule">
+      <strong>The rule:</strong> evidence may suggest, people or accepted authority decide, and landing verifies the exact result.
+    </div>
+  </main>
+
+  <script>
+    const scenarios = {
+      local: {
+        verdict: "Local",
+        steps: [
+          "The brief finds no affected accepted meaning.",
+          "The agent records an explicit <code>no-record</code> decision.",
+          "Focused checks run on the candidate, then it lands."
+        ]
+      },
+      contract: {
+        verdict: "Open",
+        steps: [
+          "The brief finds the domains, architecture, and existing promises involved.",
+          "A human or accepted authority resolves any real ambiguity.",
+          "The contract and its verifier change together before exact-tree landing."
+        ]
+      },
+      parallel: {
+        verdict: "Coordinated",
+        steps: [
+          "Each unit gets a branch, claims, dependencies, and a short-lived lease.",
+          "Unordered units may proceed only when their claims do not collide.",
+          "After one lands, the other rebuilds and verifies against the new <code>main</code>."
+        ]
+      }
+    };
+
+    const buttons = [...document.querySelectorAll("[data-scenario]")];
+    const panel = document.querySelector("#scenario");
+    const verdict = document.querySelector("#verdict");
+    const steps = document.querySelector("#scenario-steps");
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const next = scenarios[button.dataset.scenario];
+        buttons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+        panel.setAttribute("aria-labelledby", button.id);
+        verdict.textContent = next.verdict;
+        steps.innerHTML = next.steps.map((step) => `<li>${step}</li>`).join("");
+      });
+    });
+  </script>
+</body>
+</html>
