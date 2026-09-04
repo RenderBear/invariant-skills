@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 ## Critical rules
 
