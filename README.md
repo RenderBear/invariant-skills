@@ -96,9 +96,7 @@ the current branch when work begins.
 
 Architecture prose is canonical in anchored Markdown sections. Domains establish relevance by
 pointing to those decisions and to contracts; pointers do not make a document true. Pending
-discoveries are visible warnings, not governance. They become `promoted`, `dismissed`, `superseded`,
-or explicitly `stale` as evidence is resolved. Legacy `CONSTRAINTS.yml` and `observations/` files
-remain readable only to support gradual migration.
+discoveries are visible warnings, not governance. 
 
 Runtime is shared by linked worktrees through the primary worktree. It may be removed without
 changing repository meaning, although doing so discards active coordination state.
@@ -109,17 +107,4 @@ replaces reach recomputation or exact-tree verification at landing. An unrelated
 of the integration branch refreshes the receipt in place; changed governing material, expanded
 semantic scope, or a real merge conflict requires attention.
 
-An ordinary staged edit on the integration branch may use the optional low-ceremony helper:
 
-```bash
-skills/intent-land/scripts/direct-edit.sh "Ignore local downloads" \
-  --unit ignore-downloads --no-record --check test:tests/test-ignore.sh
-```
-
-The helper does not infer `no-record`. That flag is the caller's explicit durable-meaning decision,
-and the helper proceeds only when independent exact-tree reach is `local`. Bounded, open, or gated
-work follows the normal isolated branch and landing path.
-
-When accepted material is Markdown, prefer a focused design document. Anchored locators such as
-`architecture:docs/jobs.md#event-stream` route actual changed hunks to that section; path-only checks
-remain conservatively file-wide when no diff can prove a narrower change.
